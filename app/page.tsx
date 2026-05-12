@@ -1,15 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 import { parseEther } from "viem";
 import { WalletConnect } from "./components/WalletConnect";
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
-
-const ABI = [
-  { name: "continuePlaying", type: "function", stateMutability: "payable", inputs: [], outputs: [] },
-  { name: "reset", type: "function", stateMutability: "nonpayable", inputs: [], outputs: [] },
-] as const;
+const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
+const CONTINUE_FEE = parseEther("0.000002");
 
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
@@ -31,7 +27,7 @@ type LeaderboardEntry = { address: string; score: number };
 
 export default function Home() {
   const { address, isConnected } = useAccount();
-  const { writeContract, isPending } = useWriteContract();
+  const { data: walletClient } = useWalletClient();
 
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
@@ -46,6 +42,7 @@ export default function Home() {
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [flash, setFlash] = useState(false);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -121,25 +118,24 @@ export default function Home() {
     }
   }
 
-  function handleContinue() {
-    if (!isConnected) {
+  async function handleContinue() {
+    if (!isConnected || !walletClient) {
       alert("Please connect your wallet to continue!");
       return;
     }
-    writeContract({
-      address: CONTRACT_ADDRESS,
-      abi: ABI,
-      functionName: "continuePlaying",
-      value: parseEther("0.000002"),
-    }, {
-      onSuccess: () => {
-        setHasContinued(true);
-        setPhase("idle");
-      },
-      onError: () => {
-        alert("Transaction failed. Please try again.");
-      }
-    });
+    setIsPending(true);
+    try {
+      await walletClient.sendTransaction({
+        to: FEE_RECIPIENT,
+        value: CONTINUE_FEE,
+      });
+      setHasContinued(true);
+      setPhase("idle");
+    } catch {
+      alert("Transaction failed. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
   function handleReset() {
