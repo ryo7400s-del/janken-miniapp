@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAccount, useConnect, useDisconnect, useWriteContract, useReadContract } from "wagmi";
-import { coinbaseWallet } from "wagmi/connectors";
+import { useAccount, useWriteContract, useReadContract } from "wagmi";
 import { parseEther } from "viem";
+import { WalletConnect } from "./components/WalletConnect";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -63,17 +63,11 @@ function random(score: number): number {
   return (Math.floor(Math.random() * 1000) + score) % 3 + 1;
 }
 
-function shortAddr(addr: string) {
-  return addr.slice(0, 6) + "..." + addr.slice(-4);
-}
-
 type LeaderboardEntry = { address: string; score: number };
 
 export default function Home() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
-  const { disconnect } = useDisconnect();
-  const { writeContract } = useWriteContract();
+  const { writeContract, isPending } = useWriteContract();
 
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
@@ -87,7 +81,7 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loadingBoard, setLoadingBoard] = useState(false);
 
-  const { data: playerData } = useReadContract({
+  const { data: playerData, refetch } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
     functionName: "getPlayer",
@@ -142,6 +136,10 @@ export default function Home() {
         abi: ABI,
         functionName: "play",
         args: [move],
+      }, {
+        onSuccess: () => {
+          setTimeout(() => refetch(), 2000);
+        }
       });
     }
 
@@ -173,6 +171,10 @@ export default function Home() {
         abi: ABI,
         functionName: "continuePlaying",
         value: parseEther("0.000002"),
+      }, {
+        onSuccess: () => {
+          setTimeout(() => refetch(), 2000);
+        }
       });
     }
     setHasContinued(true);
@@ -185,6 +187,10 @@ export default function Home() {
         address: CONTRACT_ADDRESS,
         abi: ABI,
         functionName: "reset",
+      }, {
+        onSuccess: () => {
+          setTimeout(() => refetch(), 2000);
+        }
       });
     }
     setScore(0);
@@ -277,35 +283,16 @@ export default function Home() {
         </div>
 
         {/* Wallet */}
-        <div style={{ textAlign: "center", marginBottom: "12px" }}>
-          {isConnected && address ? (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
-                {shortAddr(address)}
-              </span>
-              <button onClick={() => disconnect()} className="arcade-btn" style={{
-                background: "#0a0a0a", border: "1px solid #444",
-                color: "#666", fontFamily: "'Press Start 2P', monospace",
-                fontSize: "7px", padding: "4px 8px", cursor: "pointer",
-              }}>
-                EXIT
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => connect({ connector: coinbaseWallet({ appName: "Rock Scissors Paper" }) })}
-              className="arcade-btn"
-              style={{
-                background: "#0a0f0a", border: "2px solid #00ff41",
-                boxShadow: "0 0 12px #00ff41",
-                color: "#00ff41", fontFamily: "'Press Start 2P', monospace",
-                fontSize: "9px", padding: "10px 20px", cursor: "pointer",
-              }}
-            >
-              CONNECT WALLET
-            </button>
-          )}
+        <div style={{ marginBottom: "12px" }}>
+          <WalletConnect />
         </div>
+
+        {/* TX Pending */}
+        {isPending && (
+          <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>
+            TX PENDING...
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display: "flex", marginBottom: "12px", border: "2px solid #333" }}>
@@ -330,7 +317,6 @@ export default function Home() {
         {/* Game tab */}
         {tab === "game" && (
           <>
-            {/* Score board */}
             <div style={{
               display: "flex", justifyContent: "space-between",
               background: "#000", border: "2px solid #333",
@@ -350,7 +336,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Battle area */}
             <div style={{
               background: "#000", border: "2px solid #333",
               padding: "20px 16px", marginBottom: "12px",
@@ -374,7 +359,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Continue */}
             {phase === "lost" && (
               <div style={{
                 background: "#000", border: "3px solid #ff003c",
@@ -412,19 +396,18 @@ export default function Home() {
               </div>
             )}
 
-            {/* Buttons */}
             {(phase === "idle" || phase === "reveal") && (
               <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "12px" }}>
                 {MOVES.map((m) => (
                   <button key={m.id} onClick={() => play(m.id)} className="arcade-btn"
-                    disabled={phase === "reveal"}
+                    disabled={phase === "reveal" || isPending}
                     style={{
                       flex: 1, background: "#0a0a0a",
                       border: "2px solid #00ff41",
                       boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
                       borderRadius: "2px", padding: "14px 4px",
-                      cursor: phase === "idle" ? "pointer" : "default",
-                      opacity: phase === "reveal" ? 0.5 : 1,
+                      cursor: phase === "idle" && !isPending ? "pointer" : "default",
+                      opacity: phase === "reveal" || isPending ? 0.5 : 1,
                       display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
                     }}>
                     <span style={{ fontSize: "36px" }}>{m.emoji}</span>
@@ -445,19 +428,14 @@ export default function Home() {
               TOP PLAYERS
             </div>
             {loadingBoard ? (
-              <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>
-                LOADING...
-              </div>
+              <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>LOADING...</div>
             ) : leaderboard.length === 0 ? (
-              <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>
-                NO RECORDS YET
-              </div>
+              <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>NO RECORDS YET</div>
             ) : (
               leaderboard.map((entry, i) => (
                 <div key={entry.address} style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "8px 4px",
-                  borderBottom: "1px solid #1a1a1a",
+                  padding: "8px 4px", borderBottom: "1px solid #1a1a1a",
                 }}>
                   <span style={{
                     fontSize: "9px",
@@ -468,7 +446,7 @@ export default function Home() {
                     {i === 0 ? "👑" : `#${i + 1}`}
                   </span>
                   <span style={{ fontSize: "8px", color: "#00eaff", flex: 1, marginLeft: "8px" }}>
-                    {shortAddr(entry.address)}
+                    {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
                   </span>
                   <span style={{ fontSize: "10px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
                     {String(entry.score).padStart(4, "0")}
@@ -487,7 +465,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bottom */}
         <div style={{
           display: "flex", justifyContent: "space-between",
           fontSize: "7px", color: "#333",
