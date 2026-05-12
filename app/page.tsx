@@ -1,11 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount, useWalletClient } from "wagmi";
-import { parseEther } from "viem";
+import { parseEther, encodeFunctionData } from "viem";
 import { WalletConnect } from "./components/WalletConnect";
 
 const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
+const BUILDER_CODE = "bc_upyavpsc";
+
+function encodeBuilderSuffix(): string {
+  return Buffer.from(BUILDER_CODE, "utf8").toString("hex");
+}
 
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
@@ -43,6 +48,7 @@ export default function Home() {
   const [countdown, setCountdown] = useState(3);
   const [flash, setFlash] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -104,6 +110,7 @@ export default function Home() {
       setScore(ns);
       if (ns > best) {
         setBest(ns);
+        setPendingHighScore(ns);
         if (isConnected) submitScore(ns);
       }
       setTimeout(() => setPhase("idle"), 1500);
@@ -113,7 +120,13 @@ export default function Home() {
       if (!hasContinued) {
         setTimeout(() => setPhase("lost"), 800);
       } else {
-        setTimeout(() => setPhase("gameover"), 800);
+        setTimeout(() => {
+          if (pendingHighScore !== null) {
+            setPhase("recordscore");
+          } else {
+            setPhase("gameover");
+          }
+        }, 800);
       }
     }
   }
@@ -125,9 +138,11 @@ export default function Home() {
     }
     setIsPending(true);
     try {
+      const suffix = encodeBuilderSuffix();
       await walletClient.sendTransaction({
         to: FEE_RECIPIENT,
         value: CONTINUE_FEE,
+        data: `0x${suffix}` as `0x${string}`,
       });
       setHasContinued(true);
       setPhase("idle");
@@ -139,7 +154,415 @@ export default function Home() {
   }
 
   function handleReset() {
-    setPhase("gameover");
+    if (pendingHighScore !== null) {
+      setPhase("recordscore");
+    } else {
+      setPhase("gameover");
+    }
+  }
+
+  async function handleRecordScore() {
+    if (!isConnected || !walletClient || pendingHighScore === null) {
+      setPendingHighScore(null);
+      setPhase("gameover");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const suffix = encodeBuilderSuffix();
+      const data = encodeFunctionData({
+        abi: [{
+          name: "recordHighScore",
+          type: "function",
+          stateMutability: "nonpayable",
+          inputs: [{ name: "score", type: "uint256" }],
+          outputs: [],
+        }],
+        functionName: "recordHighScore",
+        args: [BigInt(pendingHighScore)],
+      });
+      const dataWithSuffix = `${data}${suffix}` as `0x${string}`;
+      await walletClient.sendTransaction({
+        to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
+        data: dataWithSuffix,
+      });
+      setPendingHighScore(null);
+      setPhase("gameover");
+    } catch {
+      setPendingHighScore(null);
+      setPhase("gameover");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  const moveObj = (id: number) => MOVES.find((m) => m.id === id);
+  const resultColor = result === "win" ? "#00ff41" : result === "draw" ? "#ffe600" : result === "lose" ? "#ff003c" : "#00eaff";
+PARTrm app/page.tsx
+
+
+
+rm app/page.tsx
+
+
+rm app/page.tsx
+rm app/page.tsx
+
+EOF
+cd ~/janken-miniapp
+cat /dev/null > app/page.tsx
+EOF
+cd ~/janken-miniapp
+cat /dev/null > app/page.tsx
+cd ~/janken-miniapp
+
+cat > app/page.tsx << 'PART1'
+"use client";
+import { useState, useEffect } from "react";
+import { useAccount, useWalletClient } from "wagmi";
+import { parseEther, encodeFunctionData } from "viem";
+import { WalletConnect } from "./components/WalletConnect";
+
+const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
+const CONTINUE_FEE = parseEther("0.000002");
+const BUILDER_CODE = "bc_upyavpsc";
+
+function encodeBuilderSuffix(): string {
+  return Buffer.from(BUILDER_CODE, "utf8").toString("hex");
+}
+
+const MOVES = [
+  { id: 1, label: "ROCK", emoji: "✊" },
+  { id: 2, label: "SCIS", emoji: "✌️" },
+  { id: 3, label: "PAPER", emoji: "🖐️" },
+];
+
+function judge(p: number, h: number): "win" | "draw" | "lose" {
+  if (p === h) return "draw";
+  if ((p === 1 && h === 2) || (p === 2 && h === 3) || (p === 3 && h === 1)) return "win";
+  return "lose";
+}
+
+function random(score: number): number {
+  return (Math.floor(Math.random() * 1000) + score) % 3 + 1;
+}
+
+type LeaderboardEntry = { address: string; score: number };
+
+export default function Home() {
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const [playerMove, setPlayerMove] = useState<number | null>(null);
+  const [houseMove, setHouseMove] = useState<number | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [phase, setPhase] = useState("idle");
+  const [hasContinued, setHasContinued] = useState(false);
+  const [blink, setBlink] = useState(true);
+  const [tab, setTab] = useState<"game" | "board">("game");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [flash, setFlash] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setBlink((b) => !b), 500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "gameover") return;
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setFlash(true);
+          setTimeout(() => {
+            setFlash(false);
+            setScore(0);
+            setPlayerMove(null);
+            setHouseMove(null);
+            setResult(null);
+            setPhase("idle");
+          }, 600);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  async function fetchLeaderboard() {
+    setLoadingBoard(true);
+    const res = await fetch("/api/leaderboard");
+    const data = await res.json();
+    setLeaderboard(data);
+    setLoadingBoard(false);
+  }
+
+  async function submitScore(newBest: number) {
+    if (!address) return;
+    await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, score: newBest }),
+    });
+  }
+
+  function play(move: number) {
+    if (phase !== "idle") return;
+    setPhase("reveal");
+    setPlayerMove(move);
+    const hm = random(score);
+    setHouseMove(hm);
+    const res = judge(move, hm);
+    setResult(res);
+
+    if (res === "win") {
+      const ns = score + 1;
+      setScore(ns);
+      if (ns > best) {
+        setBest(ns);
+        setPendingHighScore(ns);
+        if (isConnected) submitScore(ns);
+      }
+      setTimeout(() => setPhase("idle"), 1500);
+    } else if (res === "draw") {
+      setTimeout(() => setPhase("idle"), 1500);
+    } else {
+      if (!hasContinued) {
+        setTimeout(() => setPhase("lost"), 800);
+      } else {
+        setTimeout(() => {
+          if (pendingHighScore !== null) {
+            setPhase("recordscore");
+          } else {
+            setPhase("gameover");
+          }
+        }, 800);
+      }
+    }
+  }
+
+  async function handleContinue() {
+    if (!isConnected || !walletClient) {
+      alert("Please connect your wallet to continue!");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const suffix = encodeBuilderSuffix();
+      await walletClient.sendTransaction({
+        to: FEE_RECIPIENT,
+        value: CONTINUE_FEE,
+        data: `0x${suffix}` as `0x${string}`,
+ EOF
+cd ~/janken-miniapp
+cat /dev/null > app/page.tsx
+
+cat > app/page.tsx << 'PART1'
+"use client";
+import { useState, useEffect } from "react";
+import { useAccount, useWalletClient } from "wagmi";
+import { parseEther, encodeFunctionData } from "viem";
+import { WalletConnect } from "./components/WalletConnect";
+
+const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
+const CONTINUE_FEE = parseEther("0.000002");
+const BUILDER_CODE = "bc_upyavpsc";
+
+function encodeBuilderSuffix(): string {
+  return Buffer.from(BUILDER_CODE, "utf8").toString("hex");
+}
+
+const MOVES = [
+  { id: 1, label: "ROCK", emoji: "✊" },
+  { id: 2, label: "SCIS", emoji: "✌️" },
+  { id: 3, label: "PAPER", emoji: "🖐️" },
+];
+
+function judge(p: number, h: number): "win" | "draw" | "lose" {
+  if (p === h) return "draw";
+  if ((p === 1 && h === 2) || (p === 2 && h === 3) || (p === 3 && h === 1)) return "win";
+  return "lose";
+}
+
+function random(score: number): number {
+  return (Math.floor(Math.random() * 1000) + score) % 3 + 1;
+}
+
+type LeaderboardEntry = { address: string; score: number };
+
+export default function Home() {
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const [playerMove, setPlayerMove] = useState<number | null>(null);
+  const [houseMove, setHouseMove] = useState<number | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [phase, setPhase] = useState("idle");
+  const [hasContinued, setHasContinued] = useState(false);
+  const [blink, setBlink] = useState(true);
+  const [tab, setTab] = useState<"game" | "board">("game");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [flash, setFlash] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setBlink((b) => !b), 500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "gameover") return;
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setFlash(true);
+          setTimeout(() => {
+            setFlash(false);
+            setScore(0);
+            setPlayerMove(null);
+            setHouseMove(null);
+            setResult(null);
+            setPhase("idle");
+          }, 600);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  async function fetchLeaderboard() {
+    setLoadingBoard(true);
+    const res = await fetch("/api/leaderboard");
+    const data = await res.json();
+    setLeaderboard(data);
+    setLoadingBoard(false);
+  }
+
+  async function submitScore(newBest: number) {
+    if (!address) return;
+    await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, score: newBest }),
+    });
+  }
+
+  function play(move: number) {
+    if (phase !== "idle") return;
+    setPhase("reveal");
+    setPlayerMove(move);
+    const hm = random(score);
+    setHouseMove(hm);
+    const res = judge(move, hm);
+    setResult(res);
+
+    if (res === "win") {
+      const ns = score + 1;
+      setScore(ns);
+      if (ns > best) {
+        setBest(ns);
+        setPendingHighScore(ns);
+        if (isConnected) submitScore(ns);
+      }
+      setTimeout(() => setPhase("idle"), 1500);
+    } else if (res === "draw") {
+      setTimeout(() => setPhase("idle"), 1500);
+    } else {
+      if (!hasContinued) {
+        setTimeout(() => setPhase("lost"), 800);
+      } else {
+        setTimeout(() => {
+          if (pendingHighScore !== null) {
+            setPhase("recordscore");
+          } else {
+            setPhase("gameover");
+          }
+        }, 800);
+      }
+    }
+  }
+
+  async function handleContinue() {
+    if (!isConnected || !walletClient) {
+      alert("Please connect your wallet to continue!");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const suffix = encodeBuilderSuffix();
+      await walletClient.sendTransaction({
+        to: FEE_RECIPIENT,
+        value: CONTINUE_FEE,
+        data: `0x${suffix}` as `0x${string}`,
+      });
+      setHasContinued(true);
+      setPhase("idle");
+    } catch {
+      alert("Transaction failed. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  function handleReset() {
+    if (pendingHighScore !== null) {
+      setPhase("recordscore");
+    } else {
+      setPhase("gameover");
+    }
+  }
+
+  async function handleRecordScore() {
+    if (!isConnected || !walletClient || pendingHighScore === null) {
+      setPendingHighScore(null);
+      setPhase("gameover");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const suffix = encodeBuilderSuffix();
+      const data = encodeFunctionData({
+        abi: [{
+          name: "recordHighScore",
+          type: "function",
+          stateMutability: "nonpayable",
+          inputs: [{ name: "score", type: "uint256" }],
+          outputs: [],
+        }],
+        functionName: "recordHighScore",
+        args: [BigInt(pendingHighScore)],
+      });
+      const dataWithSuffix = `${data}${suffix}` as `0x${string}`;
+      await walletClient.sendTransaction({
+        to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
+        data: dataWithSuffix,
+      });
+      setPendingHighScore(null);
+      setPhase("gameover");
+    } catch {
+      setPendingHighScore(null);
+      setPhase("gameover");
+    } finally {
+      setIsPending(false);
+    }
   }
 
   const moveObj = (id: number) => MOVES.find((m) => m.id === id);
@@ -176,6 +599,27 @@ export default function Home() {
           <div style={{ fontSize: "10px", color: "#666", marginBottom: "8px" }}>SCORE RESET</div>
           <div style={{ fontSize: "10px", color: "#888", marginBottom: "16px" }}>NEW GAME IN...</div>
           <div style={{ fontSize: "72px", color: "#ffe600", textShadow: "0 0 30px #ffe600, 0 0 80px #ffe600", animation: "countdown-pop 0.8s ease-out" }}>{countdown === 0 ? "GO!" : countdown}</div>
+        </div>
+      )}
+
+      {phase === "recordscore" && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ fontSize: "16px", color: "#ffe600", textShadow: "0 0 20px #ffe600", marginBottom: "12px" }}>NEW HIGH SCORE!</div>
+          <div style={{ fontSize: "48px", color: "#00ff41", textShadow: "0 0 30px #00ff41", marginBottom: "8px" }}>{pendingHighScore}</div>
+          <div style={{ fontSize: "8px", color: "#888", marginBottom: "24px", textAlign: "center", lineHeight: 2 }}>
+            Record on Base blockchain?{"\n"}Builder Code will be attached.
+          </div>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button onClick={handleRecordScore} disabled={isPending} style={{ background: "#0a1a0a", border: "2px solid #00ff41", color: "#00ff41", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer", boxShadow: "0 0 16px #00ff41", opacity: isPending ? 0.5 : 1 }}>
+              {isPending ? "RECORDING..." : "RECORD"}
+            </button>
+            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer" }}>
+              SKIP
+            </button>
+          </div>
+          {!isConnected && (
+            <div style={{ marginTop: "16px", fontSize: "7px", color: "#ff003c" }}>Connect wallet to record!</div>
+          )}
         </div>
       )}
 
