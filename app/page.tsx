@@ -80,6 +80,8 @@ export default function Home() {
   const [tab, setTab] = useState<"game" | "board">("game");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loadingBoard, setLoadingBoard] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [flash, setFlash] = useState(false);
 
   const { data: playerData, refetch } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -103,6 +105,31 @@ export default function Home() {
     const t = setInterval(() => setBlink((b) => !b), 500);
     return () => clearInterval(t);
   }, []);
+
+  // カウントダウン処理
+  useEffect(() => {
+    if (phase !== "gameover") return;
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setFlash(true);
+          setTimeout(() => {
+            setFlash(false);
+            setScore(0);
+            setPlayerMove(null);
+            setHouseMove(null);
+            setResult(null);
+            setPhase("idle");
+          }, 600);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
 
   async function fetchLeaderboard() {
     setLoadingBoard(true);
@@ -137,9 +164,7 @@ export default function Home() {
         functionName: "play",
         args: [move],
       }, {
-        onSuccess: () => {
-          setTimeout(() => refetch(), 2000);
-        }
+        onSuccess: () => setTimeout(() => refetch(), 2000),
       });
     }
 
@@ -156,10 +181,11 @@ export default function Home() {
       setTimeout(() => setPhase("idle"), 1500);
     } else {
       if (!hasContinued) {
-        setPhase("lost");
+        // 1回目の負け → コンティニュー画面
+        setTimeout(() => setPhase("lost"), 800);
       } else {
-        setScore(0);
-        setTimeout(() => setPhase("idle"), 1500);
+        // 2回目の負け → ゲームオーバー演出
+        setTimeout(() => setPhase("gameover"), 800);
       }
     }
   }
@@ -172,9 +198,7 @@ export default function Home() {
         functionName: "continuePlaying",
         value: parseEther("0.000002"),
       }, {
-        onSuccess: () => {
-          setTimeout(() => refetch(), 2000);
-        }
+        onSuccess: () => setTimeout(() => refetch(), 2000),
       });
     }
     setHasContinued(true);
@@ -188,13 +212,11 @@ export default function Home() {
         abi: ABI,
         functionName: "reset",
       }, {
-        onSuccess: () => {
-          setTimeout(() => refetch(), 2000);
-        }
+        onSuccess: () => setTimeout(() => refetch(), 2000),
       });
     }
-    setScore(0);
-    setPhase("idle");
+    // リセット → ゲームオーバー演出
+    setPhase("gameover");
   }
 
   const moveObj = (id: number) => MOVES.find((m) => m.id === id);
@@ -208,15 +230,16 @@ export default function Home() {
     <main style={{
       minHeight: "100vh",
       width: "100vw",
-      background: "#0a0a0a",
+      background: flash ? "#ff003c" : "#0a0a0a",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       fontFamily: "'Press Start 2P', monospace",
-      backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
+      backgroundImage: flash ? "none" : "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
       boxSizing: "border-box",
       padding: "16px",
+      transition: "background 0.1s",
     }}>
 
       <style>{`
@@ -240,13 +263,31 @@ export default function Home() {
         }
         @keyframes shake {
           0%,100% { transform: translateX(0); }
-          25% { transform: translateX(-8px); }
-          75% { transform: translateX(8px); }
+          25% { transform: translateX(-12px); }
+          75% { transform: translateX(12px); }
         }
         @keyframes pop {
           0% { transform: scale(0.5); opacity:0; }
           70% { transform: scale(1.2); }
           100% { transform: scale(1); opacity:1; }
+        }
+        @keyframes big-shake {
+          0%,100% { transform: translate(0,0) rotate(0deg); }
+          20% { transform: translate(-10px, 5px) rotate(-3deg); }
+          40% { transform: translate(10px, -5px) rotate(3deg); }
+          60% { transform: translate(-8px, 3px) rotate(-2deg); }
+          80% { transform: translate(8px, -3px) rotate(2deg); }
+        }
+        @keyframes countdown-pop {
+          0% { transform: scale(2); opacity:0; }
+          50% { transform: scale(1.2); opacity:1; }
+          100% { transform: scale(1); opacity:1; }
+        }
+        @keyframes glitch {
+          0%,100% { clip-path: inset(0 0 100% 0); }
+          20% { clip-path: inset(20% 0 50% 0); transform: translateX(-4px); }
+          40% { clip-path: inset(60% 0 10% 0); transform: translateX(4px); }
+          60% { clip-path: inset(40% 0 30% 0); transform: translateX(-2px); }
         }
         .arcade-btn:hover { background: #1a1a1a !important; transform: translateY(-3px); }
         .arcade-btn:active { transform: translateY(2px); }
@@ -259,14 +300,53 @@ export default function Home() {
         pointerEvents: "none", zIndex: 10,
       }} />
 
+      {/* ゲームオーバー演出オーバーレイ */}
+      {phase === "gameover" && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 100,
+          background: "rgba(0,0,0,0.85)",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          animation: "big-shake 0.5s ease-in-out",
+        }}>
+          <div style={{
+            fontSize: "28px", color: "#ff003c",
+            textShadow: "0 0 20px #ff003c, 0 0 60px #ff003c",
+            marginBottom: "16px",
+            animation: "big-shake 0.3s ease-in-out infinite",
+          }}>
+            GAME OVER
+          </div>
+          <div style={{ fontSize: "12px", color: "#666", marginBottom: "24px" }}>
+            SCORE RESET
+          </div>
+          <div style={{
+            fontSize: "12px", color: "#888", marginBottom: "12px",
+          }}>
+            NEW GAME IN...
+          </div>
+          <div style={{
+            fontSize: "64px", color: "#ffe600",
+            textShadow: "0 0 30px #ffe600, 0 0 80px #ffe600",
+            animation: "countdown-pop 0.8s ease-out",
+            key: countdown,
+          }}>
+            {countdown}
+          </div>
+        </div>
+      )}
+
       <div style={{
         width: "100%",
         maxWidth: "480px",
-        border: "3px solid #00ff41",
-        boxShadow: "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)",
+        border: `3px solid ${phase === "gameover" ? "#ff003c" : "#00ff41"}`,
+        boxShadow: phase === "gameover"
+          ? "0 0 40px #ff003c, inset 0 0 30px rgba(255,0,60,0.1)"
+          : "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)",
         borderRadius: "4px",
         padding: "20px 16px",
-        animation: "flicker 8s infinite",
+        animation: phase === "gameover" ? "big-shake 0.4s ease-in-out" : "flicker 8s infinite",
+        transition: "border-color 0.3s, box-shadow 0.3s",
       }}>
 
         {/* Title */}
@@ -274,7 +354,7 @@ export default function Home() {
           <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>
             * INSERT COIN *
           </div>
-          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px", lineHeight: 1.4 }}>
+          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>
             ROCK SCIS PAPER
           </div>
           <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>
@@ -287,7 +367,6 @@ export default function Home() {
           <WalletConnect />
         </div>
 
-        {/* TX Pending */}
         {isPending && (
           <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>
             TX PENDING...
@@ -317,6 +396,7 @@ export default function Home() {
         {/* Game tab */}
         {tab === "game" && (
           <>
+            {/* Score */}
             <div style={{
               display: "flex", justifyContent: "space-between",
               background: "#000", border: "2px solid #333",
@@ -336,6 +416,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Battle */}
             <div style={{
               background: "#000", border: "2px solid #333",
               padding: "20px 16px", marginBottom: "12px",
@@ -359,6 +440,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Continue screen */}
             {phase === "lost" && (
               <div style={{
                 background: "#000", border: "3px solid #ff003c",
@@ -396,6 +478,7 @@ export default function Home() {
               </div>
             )}
 
+            {/* Action buttons */}
             {(phase === "idle" || phase === "reveal") && (
               <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "12px" }}>
                 {MOVES.map((m) => (
@@ -421,7 +504,7 @@ export default function Home() {
           </>
         )}
 
-        {/* Leaderboard tab */}
+        {/* Leaderboard */}
         {tab === "board" && (
           <div style={{ background: "#000", border: "2px solid #333", padding: "12px" }}>
             <div style={{ fontSize: "10px", color: "#ffe600", textShadow: "0 0 8px #ffe600", textAlign: "center", marginBottom: "12px" }}>
@@ -440,8 +523,7 @@ export default function Home() {
                   <span style={{
                     fontSize: "9px",
                     color: i === 0 ? "#ffe600" : i === 1 ? "#aaaaaa" : i === 2 ? "#ff6600" : "#444",
-                    textShadow: i === 0 ? "0 0 8px #ffe600" : "none",
-                    minWidth: "24px",
+                    textShadow: i === 0 ? "0 0 8px #ffe600" : "none", minWidth: "24px",
                   }}>
                     {i === 0 ? "👑" : `#${i + 1}`}
                   </span>
@@ -454,7 +536,7 @@ export default function Home() {
                 </div>
               ))
             )}
-            <button onClick={fetchLeaderboard} className="arcade-btn" style={{
+            <button onClick={fetchLead
               width: "100%", marginTop: "12px",
               background: "#0a0a0a", border: "1px solid #333",
               color: "#444", fontFamily: "'Press Start 2P', monospace",
