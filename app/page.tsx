@@ -1,5 +1,47 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useAccount, useConnect, useDisconnect, useWriteContract, useReadContract } from "wagmi";
+import { coinbaseWallet } from "wagmi/connectors";
+import { parseEther } from "viem";
+
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+
+const ABI = [
+  {
+    name: "play",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "playerMove", type: "uint8" }],
+    outputs: [],
+  },
+  {
+    name: "continuePlaying",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: "reset",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: "getPlayer",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "addr", type: "address" }],
+    outputs: [
+      { name: "score", type: "uint256" },
+      { name: "highScore", type: "uint256" },
+      { name: "isAlive", type: "bool" },
+      { name: "hasContinued", type: "bool" },
+      { name: "continuePending", type: "bool" },
+    ],
+  },
+] as const;
 
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
@@ -21,7 +63,16 @@ function random(score: number): number {
   return (Math.floor(Math.random() * 1000) + score) % 3 + 1;
 }
 
+function shortAddr(addr: string) {
+  return addr.slice(0, 6) + "..." + addr.slice(-4);
+}
+
 export default function Home() {
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { writeContract } = useWriteContract();
+
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [playerMove, setPlayerMove] = useState<number | null>(null);
@@ -30,6 +81,24 @@ export default function Home() {
   const [phase, setPhase] = useState("idle");
   const [hasContinued, setHasContinued] = useState(false);
   const [blink, setBlink] = useState(true);
+
+  const { data: playerData } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: ABI,
+    functionName: "getPlayer",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+
+  useEffect(() => {
+    if (playerData) {
+      const [s, h, , cont, pending] = playerData;
+      setScore(Number(s));
+      setBest(Number(h));
+      setHasContinued(cont);
+      if (pending) setPhase("lost");
+    }
+  }, [playerData]);
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -44,6 +113,16 @@ export default function Home() {
     setHouseMove(hm);
     const res = judge(move, hm);
     setResult(res);
+
+    if (isConnected) {
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: ABI,
+        functionName: "play",
+        args: [move],
+      });
+    }
+
     if (res === "win") {
       const ns = score + 1;
       setScore(ns);
@@ -62,16 +141,31 @@ export default function Home() {
   }
 
   function handleContinue() {
+    if (isConnected) {
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: ABI,
+        functionName: "continuePlaying",
+        value: parseEther("0.000002"),
+      });
+    }
     setHasContinued(true);
     setPhase("idle");
   }
 
   function handleReset() {
+    if (isConnected) {
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: ABI,
+        functionName: "reset",
+      });
+    }
     setScore(0);
     setPhase("idle");
   }
 
-  const move = (id: number) => MOVES.find((m) => m.id === id);
+  const moveObj = (id: number) => MOVES.find((m) => m.id === id);
 
   const resultColor =
     result === "win" ? "#00ff41" :
@@ -121,16 +215,10 @@ export default function Home() {
           70% { transform: scale(1.2); }
           100% { transform: scale(1); opacity:1; }
         }
-        .arcade-btn:hover {
-          background: #1a1a1a !important;
-          transform: translateY(-3px);
-        }
-        .arcade-btn:active {
-          transform: translateY(2px);
-        }
+        .arcade-btn:hover { background: #1a1a1a !important; transform: translateY(-3px); }
+        .arcade-btn:active { transform: translateY(2px); }
       `}</style>
 
-      {/* Scanline */}
       <div style={{
         position: "fixed", top: 0, left: 0, right: 0, height: "80px",
         background: "linear-gradient(transparent, rgba(0,255,65,0.06), transparent)",
@@ -138,7 +226,6 @@ export default function Home() {
         pointerEvents: "none", zIndex: 10,
       }} />
 
-      {/* Main cabinet - full width on mobile */}
       <div style={{
         width: "100%",
         maxWidth: "480px",
@@ -151,18 +238,10 @@ export default function Home() {
 
         {/* Title */}
         <div style={{ textAlign: "center", marginBottom: "16px" }}>
-          <div style={{
-            fontSize: "11px", color: "#ff00ff",
-            textShadow: "0 0 10px #ff00ff, 0 0 30px #ff00ff",
-            letterSpacing: "3px", marginBottom: "6px",
-          }}>
+          <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>
             * INSERT COIN *
           </div>
-          <div style={{
-            fontSize: "18px", color: "#00ff41",
-            animation: "glow-green 2s ease-in-out infinite",
-            letterSpacing: "2px", lineHeight: 1.4,
-          }}>
+          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px", lineHeight: 1.4 }}>
             ROCK SCIS<br />PAPER
           </div>
           <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>
@@ -170,12 +249,43 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Wallet */}
+        <div style={{ textAlign: "center", marginBottom: "14px" }}>
+          {isConnected && address ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
+                {shortAddr(address)}
+              </span>
+              <button onClick={() => disconnect()} className="arcade-btn" style={{
+                background: "#0a0a0a", border: "1px solid #444",
+                color: "#666", fontFamily: "'Press Start 2P', monospace",
+                fontSize: "7px", padding: "4px 8px", cursor: "pointer",
+              }}>
+                EXIT
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => connect({ connector: coinbaseWallet({ appName: "Rock Scissors Paper" }) })}
+              className="arcade-btn"
+              style={{
+                background: "#0a0f0a", border: "2px solid #00ff41",
+                boxShadow: "0 0 12px #00ff41",
+                color: "#00ff41", fontFamily: "'Press Start 2P', monospace",
+                fontSize: "9px", padding: "10px 20px", cursor: "pointer",
+                transition: "all 0.1s",
+              }}
+            >
+              CONNECT WALLET
+            </button>
+          )}
+        </div>
+
         {/* Score board */}
         <div style={{
           display: "flex", justifyContent: "space-between",
           background: "#000", border: "2px solid #333",
           padding: "10px 16px", marginBottom: "16px",
-          borderRadius: "2px",
         }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>1UP</div>
@@ -193,39 +303,24 @@ export default function Home() {
 
         {/* Battle area */}
         <div style={{
-          background: "#000",
-          border: "2px solid #333",
-          borderRadius: "2px",
-          padding: "20px 16px",
-          marginBottom: "16px",
-          textAlign: "center",
-          minHeight: "130px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-around",
+          background: "#000", border: "2px solid #333",
+          padding: "20px 16px", marginBottom: "16px",
+          textAlign: "center", minHeight: "130px",
+          display: "flex", alignItems: "center", justifyContent: "space-around",
         }}>
           <div>
             <div style={{ fontSize: "9px", color: "#00eaff", marginBottom: "8px" }}>P1</div>
             <div style={{ fontSize: "56px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>
-              {playerMove ? move(playerMove)?.emoji : "❓"}
+              {playerMove ? moveObj(playerMove)?.emoji : "❓"}
             </div>
           </div>
-
-          <div style={{
-            fontSize: "13px",
-            color: resultColor,
-            textShadow: `0 0 14px ${resultColor}`,
-            lineHeight: 1.6,
-          }}>
-            {result === "win" ? "WIN!" :
-             result === "draw" ? "DRAW" :
-             result === "lose" ? "LOSE" : "VS"}
+          <div style={{ fontSize: "13px", color: resultColor, textShadow: `0 0 14px ${resultColor}`, lineHeight: 1.6 }}>
+            {result === "win" ? "WIN!" : result === "draw" ? "DRAW" : result === "lose" ? "LOSE" : "VS"}
           </div>
-
           <div>
             <div style={{ fontSize: "9px", color: "#ff6600", marginBottom: "8px" }}>CPU</div>
             <div style={{ fontSize: "56px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>
-              {houseMove ? move(houseMove)?.emoji : "❓"}
+              {houseMove ? moveObj(houseMove)?.emoji : "❓"}
             </div>
           </div>
         </div>
@@ -233,21 +328,15 @@ export default function Home() {
         {/* Continue screen */}
         {phase === "lost" && (
           <div style={{
-            background: "#000",
-            border: "3px solid #ff003c",
-            boxShadow: "0 0 24px #ff003c",
-            borderRadius: "2px",
-            padding: "20px 16px",
-            textAlign: "center",
-            marginBottom: "16px",
+            background: "#000", border: "3px solid #ff003c",
+            boxShadow: "0 0 24px #ff003c", padding: "20px 16px",
+            textAlign: "center", marginBottom: "16px",
             animation: "shake 0.4s ease-in-out",
           }}>
             <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>
               GAME OVER
             </div>
-            <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>
-              CONTINUE?
-            </div>
+            <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>CONTINUE?</div>
             <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>
               {blink ? ">>> INSERT COIN <<<" : ""}
             </div>
@@ -256,26 +345,17 @@ export default function Home() {
             </div>
             <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
               <button onClick={handleContinue} className="arcade-btn" style={{
-                background: "#1a0000",
-                border: "2px solid #ff003c",
-                color: "#ff003c",
-                fontFamily: "'Press Start 2P', monospace",
-                fontSize: "9px",
-                padding: "12px 16px",
-                cursor: "pointer",
-                boxShadow: "0 0 10px #ff003c",
-                transition: "all 0.1s",
+                background: "#1a0000", border: "2px solid #ff003c",
+                color: "#ff003c", fontFamily: "'Press Start 2P', monospace",
+                fontSize: "9px", padding: "12px 16px", cursor: "pointer",
+                boxShadow: "0 0 10px #ff003c", transition: "all 0.1s",
               }}>
                 CONTINUE
               </button>
               <button onClick={handleReset} className="arcade-btn" style={{
-                background: "#0a0a0a",
-                border: "2px solid #444",
-                color: "#666",
-                fontFamily: "'Press Start 2P', monospace",
-                fontSize: "9px",
-                padding: "12px 16px",
-                cursor: "pointer",
+                background: "#0a0a0a", border: "2px solid #444",
+                color: "#666", fontFamily: "'Press Start 2P', monospace",
+                fontSize: "9px", padding: "12px 16px", cursor: "pointer",
                 transition: "all 0.1s",
               }}>
                 RESET
@@ -285,30 +365,24 @@ export default function Home() {
         )}
 
         {/* Action buttons */}
-        {phase === "idle" && (
+        {(phase === "idle" || phase === "reveal") && (
           <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "16px" }}>
             {MOVES.map((m) => (
-              <button key={m.id} onClick={() => play(m.id)} className="arcade-btn" style={{
-                flex: 1,
-                background: "#0a0a0a",
-                border: "2px solid #00ff41",
-                boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
-                borderRadius: "2px",
-                padding: "14px 4px",
-                cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "8px",
-                transition: "all 0.1s",
-              }}>
+              <button key={m.id} onClick={() => play(m.id)} className="arcade-btn"
+                disabled={phase === "reveal"}
+                style={{
+                  flex: 1, background: "#0a0a0a",
+                  border: "2px solid #00ff41",
+                  boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
+                  borderRadius: "2px", padding: "14px 4px", cursor: phase === "idle" ? "pointer" : "default",
+                  opacity: phase === "reveal" ? 0.5 : 1,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
+                  transition: "all 0.1s",
+                }}>
                 <span style={{ fontSize: "36px" }}>{m.emoji}</span>
-                <span style={{
-                  fontFamily: "'Press Start 2P', monospace",
-                  fontSize: "8px",
-                  color: "#00ff41",
-                  textShadow: "0 0 6px #00ff41",
-                }}>{m.label}</span>
+                <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
+                  {m.label}
+                </span>
               </button>
             ))}
           </div>
@@ -318,12 +392,11 @@ export default function Home() {
         <div style={{
           display: "flex", justifyContent: "space-between",
           fontSize: "8px", color: "#444",
-          borderTop: "1px solid #222",
-          paddingTop: "10px",
+          borderTop: "1px solid #222", paddingTop: "10px",
         }}>
           <span>CREDITS: 1</span>
           {hasContinued && <span style={{ color: "#ffe600" }}>CONTINUED</span>}
-          <span>BASE CHAIN</span>
+          <span>BASE</span>
         </div>
 
       </div>
