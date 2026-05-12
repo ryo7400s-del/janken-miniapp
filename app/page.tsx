@@ -1,16 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAccount, useWriteContract, useReadContract } from "wagmi";
+import { useAccount, useWriteContract } from "wagmi";
 import { parseEther } from "viem";
 import { WalletConnect } from "./components/WalletConnect";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
 const ABI = [
-  { name: "play", type: "function", stateMutability: "nonpayable", inputs: [{ name: "playerMove", type: "uint8" }], outputs: [] },
   { name: "continuePlaying", type: "function", stateMutability: "payable", inputs: [], outputs: [] },
   { name: "reset", type: "function", stateMutability: "nonpayable", inputs: [], outputs: [] },
-  { name: "getPlayer", type: "function", stateMutability: "view", inputs: [{ name: "addr", type: "address" }], outputs: [{ name: "score", type: "uint256" }, { name: "highScore", type: "uint256" }, { name: "isAlive", type: "bool" }, { name: "hasContinued", type: "bool" }, { name: "continuePending", type: "bool" }] },
 ] as const;
 
 const MOVES = [
@@ -34,6 +32,7 @@ type LeaderboardEntry = { address: string; score: number };
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { writeContract, isPending } = useWriteContract();
+
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [playerMove, setPlayerMove] = useState<number | null>(null);
@@ -47,24 +46,6 @@ export default function Home() {
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [flash, setFlash] = useState(false);
-
-  const { data: playerData, refetch } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: "getPlayer",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  useEffect(() => {
-    if (playerData) {
-      const [s, h, , cont, pending] = playerData;
-      setScore(Number(s));
-      setBest(Number(h));
-      setHasContinued(cont);
-      if (pending) setPhase("lost");
-    }
-  }, [playerData]);
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -120,35 +101,48 @@ export default function Home() {
     setHouseMove(hm);
     const res = judge(move, hm);
     setResult(res);
-    if (isConnected) {
-      writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: "play", args: [move] }, { onSuccess: () => setTimeout(() => refetch(), 2000) });
-    }
+
     if (res === "win") {
       const ns = score + 1;
       setScore(ns);
-      const newBest = Math.max(best, ns);
-      if (ns > best) { setBest(newBest); submitScore(newBest); }
+      if (ns > best) {
+        setBest(ns);
+        if (isConnected) submitScore(ns);
+      }
       setTimeout(() => setPhase("idle"), 1500);
     } else if (res === "draw") {
       setTimeout(() => setPhase("idle"), 1500);
     } else {
-      if (!hasContinued) { setTimeout(() => setPhase("lost"), 800); }
-      else { setTimeout(() => setPhase("gameover"), 800); }
+      if (!hasContinued) {
+        setTimeout(() => setPhase("lost"), 800);
+      } else {
+        setTimeout(() => setPhase("gameover"), 800);
+      }
     }
   }
 
   function handleContinue() {
-    if (isConnected) {
-      writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: "continuePlaying", value: parseEther("0.000002") }, { onSuccess: () => setTimeout(() => refetch(), 2000) });
+    if (!isConnected) {
+      alert("Please connect your wallet to continue!");
+      return;
     }
-    setHasContinued(true);
-    setPhase("idle");
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: ABI,
+      functionName: "continuePlaying",
+      value: parseEther("0.000002"),
+    }, {
+      onSuccess: () => {
+        setHasContinued(true);
+        setPhase("idle");
+      },
+      onError: () => {
+        alert("Transaction failed. Please try again.");
+      }
+    });
   }
 
   function handleReset() {
-    if (isConnected) {
-      writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: "reset" }, { onSuccess: () => setTimeout(() => refetch(), 2000) });
-    }
     setPhase("gameover");
   }
 
@@ -178,18 +172,350 @@ export default function Home() {
         .arcade-btn:active { transform: translateY(2px); }
       `}</style>
 
+
+cat > app/page.tsx << 'PART1'
+"use client";
+import { useState, useEffect } from "react";
+import { useAccount, useWriteContract } from "wagmi";
+import { parseEther } from "viem";
+import { WalletConnect } from "./components/WalletConnect";
+
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+
+const ABI = [
+  { name: "continuePlaying", type: "function", stateMutability: "payable", inputs: [], outputs: [] },
+  { name: "reset", type: "function", stateMutability: "nonpayable", inputs: [], outputs: [] },
+] as const;
+
+const MOVES = [
+  { id: 1, label: "ROCK", emoji: "✊" },
+  { id: 2, label: "SCIS", emoji: "✌️" },
+  { id: 3, label: "PAPER", emoji: "🖐️" },
+];
+
+function judge(p: number, h: number): "win" | "draw" | "lose" {
+  if (p === h) return "draw";
+  if ((p === 1 && h === 2) || (p === 2 && h === 3) || (p === 3 && h === 1)) return "win";
+  return "lose";
+}
+
+function random(score: number): number {
+  return (Math.floor(Math.random() * 1000) + score) % 3 + 1;
+}
+
+type LeaderboardEntry = { address: string; score: number };
+
+export default function Home() {
+  const { address, isConnected } = useAccount();
+  const { writeContract, isPending } = useWriteContract();
+
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const [playerMove, setPlayerMove] = useState<number | null>(null);
+  const [houseMove, setHouseMove] = useState<number | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [phase, setPhase] = useState("idle");
+  const [hasContinued, setHasContinued] = useState(false);
+  const [blink, setBlink] = useState(true);
+  const [tab, setTab] = useState<"game" | "board">("game");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setBlink((b) => !b), 500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "gameover") return;
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setFlash(true);
+          setTimeout(() => {
+            setFlash(false);
+            setScore(0);
+            setPlayerMove(null);
+            setHouseMove(null);
+            setResult(null);
+            setPhase("idle");
+          }, 600);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  async function fetchLeaderboard() {
+    setLoadingBoard(true);
+    const res = await fetch("/api/leaderboard");
+    const data = await res.json();
+    setLeaderboard(data);
+    setLoadingBoard(false);
+  }
+
+  async function submitScore(newBest: number) {
+    if (!address) return;
+    await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, score: newBest }),
+    });
+  }
+
+  function play(move: number) {
+    if (phase !== "idle") return;
+    setPhase("reveal");
+    setPlayerMove(move);
+    const hm = random(score);
+    setHouseMove(hm);
+    const res = judge(move, hm);
+    setResult(res);
+
+    if (res === "win") {
+      const ns = score + 1;
+      setScore(ns);
+      if (ns > best) {
+        setBest(ns);
+        if (isConnected) submitScore(ns);
+      }
+      setTimeout(() => setPhase("idle"), 1500);
+    } else if (res === "draw") {
+      setTimeout(() => setPhase("idle"), 1500);
+    } else {
+      if (!hasContinued) {
+        setTimeout(() => setPhase("lost"), 800);
+      } else {
+        setTimeout(() => setPhase("gameover"), 800);
+      }
+    }
+  }
+
+  function handleContinue() {
+    if (!isConnected) {
+      alert("Please connect your wallet to continue!");
+      return;
+    }
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: ABI,
+      functionName: "continuePlaying",
+      value: parseEther("0.000002"),
+    }, {
+      onSuccess: () => {
+        setHasContinued(true);
+        setPhase("idle");
+      },
+      onError: () => {
+        alert("Transaction failed. Please try again.");
+      }
+    });
+  }
+
+  function handleReset() {
+    setPhase("gameover");
+  }
+
+  const moveObj = (id: number) => MOVES.find((m) => m.id === id);
+  const resultColor = result === "win" ? "#00ff41" : result === "draw" ? "#ffe600" : result === "lose" ? "#ff003c" : "#00eaff";
+PART1
+
+
+cat > app/page.tsx << 'PART1'
+"use client";
+import { useState, useEffect } from "react";
+import { useAccount, useWriteContract } from "wagmi";
+import { parseEther } from "viem";
+import { WalletConnect } from "./components/WalletConnect";
+
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+
+const ABI = [
+  { name: "continuePlaying", type: "function", stateMutability: "payable", inputs: [], outputs: [] },
+  { name: "reset", type: "function", stateMutability: "nonpayable", inputs: [], outputs: [] },
+] as const;
+
+const MOVES = [
+  { id: 1, label: "ROCK", emoji: "✊" },
+  { id: 2, label: "SCIS", emoji: "✌️" },
+  { id: 3, label: "PAPER", emoji: "🖐️" },
+];
+
+function judge(p: number, h: number): "win" | "draw" | "lose" {
+  if (p === h) return "draw";
+  if ((p === 1 && h === 2) || (p === 2 && h === 3) || (p === 3 && h === 1)) return "win";
+  return "lose";
+}
+
+function random(score: number): number {
+  return (Math.floor(Math.random() * 1000) + score) % 3 + 1;
+}
+
+type LeaderboardEntry = { address: string; score: number };
+
+export default function Home() {
+  const { address, isConnected } = useAccount();
+  const { writeContract, isPending } = useWriteContract();
+
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const [playerMove, setPlayerMove] = useState<number | null>(null);
+  const [houseMove, setHouseMove] = useState<number | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [phase, setPhase] = useState("idle");
+  const [hasContinued, setHasContinued] = useState(false);
+  const [blink, setBlink] = useState(true);
+  const [tab, setTab] = useState<"game" | "board">("game");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setBlink((b) => !b), 500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "gameover") return;
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setFlash(true);
+          setTimeout(() => {
+            setFlash(false);
+            setScore(0);
+            setPlayerMove(null);
+            setHouseMove(null);
+            setResult(null);
+            setPhase("idle");
+          }, 600);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  async function fetchLeaderboard() {
+    setLoadingBoard(true);
+    const res = await fetch("/api/leaderboard");
+    const data = await res.json();
+    setLeaderboard(data);
+    setLoadingBoard(false);
+  }
+
+  async function submitScore(newBest: number) {
+    if (!address) return;
+    await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, score: newBest }),
+    });
+  }
+
+  function play(move: number) {
+    if (phase !== "idle") return;
+    setPhase("reveal");
+    setPlayerMove(move);
+    const hm = random(score);
+    setHouseMove(hm);
+    const res = judge(move, hm);
+    setResult(res);
+
+    if (res === "win") {
+      const ns = score + 1;
+      setScore(ns);
+      if (ns > best) {
+        setBest(ns);
+        if (isConnected) submitScore(ns);
+      }
+      setTimeout(() => setPhase("idle"), 1500);
+    } else if (res === "draw") {
+      setTimeout(() => setPhase("idle"), 1500);
+    } else {
+      if (!hasContinued) {
+        setTimeout(() => setPhase("lost"), 800);
+      } else {
+        setTimeout(() => setPhase("gameover"), 800);
+      }
+    }
+  }
+
+  function handleContinue() {
+    if (!isConnected) {
+      alert("Please connect your wallet to continue!");
+      return;
+    }
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: ABI,
+      functionName: "continuePlaying",
+      value: parseEther("0.000002"),
+    }, {
+      onSuccess: () => {
+        setHasContinued(true);
+        setPhase("idle");
+      },
+      onError: () => {
+        alert("Transaction failed. Please try again.");
+      }
+    });
+  }
+
+  function handleReset() {
+    setPhase("gameover");
+  }
+
+  const moveObj = (id: number) => MOVES.find((m) => m.id === id);
+  const resultColor = result === "win" ? "#00ff41" : result === "draw" ? "#ffe600" : result === "lose" ? "#ff003c" : "#00eaff";
+PART1
+cat >> app/page.tsx << 'PART2'
+
+  return (
+    <main style={{
+      minHeight: "100vh", width: "100vw",
+      background: flash ? "#ff003c" : "#0a0a0a",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Press Start 2P', monospace",
+      backgroundImage: flash ? "none" : "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
+      boxSizing: "border-box", padding: "16px", transition: "background 0.1s",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+        @keyframes flicker { 0%,100% { opacity:1; } 92% { opacity:1; } 93% { opacity:0.4; } 94% { opacity:1; } 96% { opacity:0.6; } 97% { opacity:1; } }
+        @keyframes glow-green { 0%,100% { text-shadow: 0 0 8px #00ff41, 0 0 20px #00ff41; } 50% { text-shadow: 0 0 20px #00ff41, 0 0 50px #00ff41, 0 0 100px #00ff41; } }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-12px); } 75% { transform: translateX(12px); } }
+        @keyframes pop { 0% { transform: scale(0.5); opacity:0; } 70% { transform: scale(1.2); } 100% { transform: scale(1); opacity:1; } }
+        @keyframes big-shake { 0%,100% { transform: translate(0,0) rotate(0deg); } 20% { transform: translate(-10px,5px) rotate(-3deg); } 40% { transform: translate(10px,-5px) rotate(3deg); } 60% { transform: translate(-8px,3px) rotate(-2deg); } 80% { transform: translate(8px,-3px) rotate(2deg); } }
+        @keyframes countdown-pop { 0% { transform: scale(2); opacity:0; } 50% { transform: scale(1.2); opacity:1; } 100% { transform: scale(1); opacity:1; } }
+        .arcade-btn:hover { background: #1a1a1a !important; transform: translateY(-3px); }
+        .arcade-btn:active { transform: translateY(2px); }
+      `}</style>
+
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "80px", background: "linear-gradient(transparent, rgba(0,255,65,0.06), transparent)", animation: "scanline 3s linear infinite", pointerEvents: "none", zIndex: 10 }} />
 
       {phase === "gameover" && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "big-shake 0.5s ease-in-out" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <div style={{ fontSize: "28px", color: "#ff003c", textShadow: "0 0 20px #ff003c, 0 0 60px #ff003c", marginBottom: "16px", animation: "big-shake 0.3s ease-in-out infinite" }}>GAME OVER</div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "24px" }}>SCORE RESET</div>
-          <div style={{ fontSize: "12px", color: "#888", marginBottom: "12px" }}>NEW GAME IN...</div>
-          <div style={{ fontSize: "64px", color: "#ffe600", textShadow: "0 0 30px #ffe600, 0 0 80px #ffe600", animation: "countdown-pop 0.8s ease-out" }}>{countdown}</div>
+          <div style={{ fontSize: "10px", color: "#666", marginBottom: "8px" }}>SCORE RESET</div>
+          <div style={{ fontSize: "10px", color: "#888", marginBottom: "16px" }}>NEW GAME IN...</div>
+          <div style={{ fontSize: "72px", color: "#ffe600", textShadow: "0 0 30px #ffe600, 0 0 80px #ffe600", animation: "countdown-pop 0.8s ease-out" }}>{countdown === 0 ? "GO!" : countdown}</div>
         </div>
       )}
 
-      <div style={{ width: "100%", maxWidth: "480px", border: `3px solid ${phase === "gameover" ? "#ff003c" : "#00ff41"}`, boxShadow: phase === "gameover" ? "0 0 40px #ff003c, inset 0 0 30px rgba(255,0,60,0.1)" : "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)", borderRadius: "4px", padding: "20px 16px", animation: phase === "gameover" ? "big-shake 0.4s ease-in-out" : "flicker 8s infinite" }}>
+      <div style={{ width: "100%", maxWidth: "480px", border: `3px solid ${phase === "gameover" ? "#ff003c" : "#00ff41"}`, boxShadow: phase === "gameover" ? "0 0 40px #ff003c" : "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)", borderRadius: "4px", padding: "20px 16px", animation: phase === "gameover" ? "big-shake 0.4s ease-in-out" : "flicker 8s infinite" }}>
 
         <div style={{ textAlign: "center", marginBottom: "12px" }}>
           <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>* INSERT COIN *</div>
@@ -241,9 +567,12 @@ export default function Home() {
                 <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>GAME OVER</div>
                 <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>CONTINUE?</div>
                 <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>{blink ? ">>> INSERT COIN <<<" : ""}</div>
-                <div style={{ fontSize: "8px", color: "#666", marginBottom: "16px" }}>0.000002 ETH • 1 CREDIT ONLY</div>
+                <div style={{ fontSize: "8px", color: "#666", marginBottom: "4px" }}>0.000002 ETH • 1 CREDIT ONLY</div>
+                <div style={{ fontSize: "7px", color: "#444", marginBottom: "16px" }}>Wallet connection required</div>
                 <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                  <button onClick={handleContinue} className="arcade-btn" style={{ background: "#1a0000", border: "2px solid #ff003c", color: "#ff003c", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer", boxShadow: "0 0 10px #ff003c" }}>CONTINUE</button>
+                  <button onClick={handleContinue} className="arcade-btn" style={{ background: "#1a0000", border: "2px solid #ff003c", color: "#ff003c", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer", boxShadow: "0 0 10px #ff003c", opacity: isPending ? 0.5 : 1 }}>
+                    {isPending ? "PENDING..." : "CONTINUE"}
+                  </button>
                   <button onClick={handleReset} className="arcade-btn" style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer" }}>RESET</button>
                 </div>
               </div>
@@ -252,7 +581,7 @@ export default function Home() {
             {(phase === "idle" || phase === "reveal") && (
               <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "12px" }}>
                 {MOVES.map((m) => (
-                  <button key={m.id} onClick={() => play(m.id)} className="arcade-btn" disabled={phase === "reveal" || isPending} style={{ flex: 1, background: "#0a0a0a", border: "2px solid #00ff41", boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600", borderRadius: "2px", padding: "14px 4px", cursor: phase === "idle" && !isPending ? "pointer" : "default", opacity: phase === "reveal" || isPending ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                  <button key={m.id} onClick={() => play(m.id)} className="arcade-btn" disabled={phase === "reveal"} style={{ flex: 1, background: "#0a0a0a", border: "2px solid #00ff41", boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600", borderRadius: "2px", padding: "14px 4px", cursor: phase === "idle" ? "pointer" : "default", opacity: phase === "reveal" ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "36px" }}>{m.emoji}</span>
                     <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>{m.label}</span>
                   </button>
