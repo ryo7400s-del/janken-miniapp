@@ -30,7 +30,6 @@ export default function Home() {
   const [phase, setPhase] = useState("idle");
   const [hasContinued, setHasContinued] = useState(false);
   const [blink, setBlink] = useState(true);
-  const [credits] = useState(1);
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -82,18 +81,20 @@ export default function Home() {
   return (
     <main style={{
       minHeight: "100vh",
+      width: "100vw",
       background: "#0a0a0a",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       fontFamily: "'Press Start 2P', monospace",
-      padding: "16px",
       backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
+      boxSizing: "border-box",
     }}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
         @keyframes scanline {
           0% { transform: translateY(-100%); }
           100% { transform: translateY(100vh); }
@@ -108,12 +109,12 @@ export default function Home() {
         }
         @keyframes glow-green {
           0%,100% { text-shadow: 0 0 8px #00ff41, 0 0 20px #00ff41; }
-          50% { text-shadow: 0 0 16px #00ff41, 0 0 40px #00ff41, 0 0 80px #00ff41; }
+          50% { text-shadow: 0 0 20px #00ff41, 0 0 50px #00ff41, 0 0 100px #00ff41; }
         }
         @keyframes shake {
           0%,100% { transform: translateX(0); }
-          25% { transform: translateX(-6px); }
-          75% { transform: translateX(6px); }
+          25% { transform: translateX(-8px); }
+          75% { transform: translateX(8px); }
         }
         @keyframes pop {
           0% { transform: scale(0.5); opacity:0; }
@@ -122,48 +123,49 @@ export default function Home() {
         }
         .arcade-btn:hover {
           background: #1a1a1a !important;
-          transform: translateY(-2px);
+          transform: translateY(-3px);
         }
         .arcade-btn:active {
           transform: translateY(2px);
         }
       `}</style>
 
-      {/* Scanline overlay */}
+      {/* Scanline */}
       <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, height: "60px",
+        position: "fixed", top: 0, left: 0, right: 0, height: "80px",
         background: "linear-gradient(transparent, rgba(0,255,65,0.06), transparent)",
         animation: "scanline 3s linear infinite",
         pointerEvents: "none", zIndex: 10,
       }} />
 
-      {/* Cabinet top bar */}
+      {/* Main cabinet - full width on mobile */}
       <div style={{
-        width: "100%", maxWidth: "400px",
+        width: "100%",
+        maxWidth: "480px",
         border: "3px solid #00ff41",
-        boxShadow: "0 0 20px #00ff41, inset 0 0 20px rgba(0,255,65,0.05)",
+        boxShadow: "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)",
         borderRadius: "4px",
-        padding: "16px",
+        padding: "20px 16px",
         animation: "flicker 8s infinite",
       }}>
 
         {/* Title */}
-        <div style={{ textAlign: "center", marginBottom: "12px" }}>
+        <div style={{ textAlign: "center", marginBottom: "16px" }}>
           <div style={{
-            fontSize: "10px", color: "#ff00ff",
+            fontSize: "11px", color: "#ff00ff",
             textShadow: "0 0 10px #ff00ff, 0 0 30px #ff00ff",
-            letterSpacing: "2px", marginBottom: "4px",
+            letterSpacing: "3px", marginBottom: "6px",
           }}>
             * INSERT COIN *
           </div>
           <div style={{
-            fontSize: "14px", color: "#00ff41",
+            fontSize: "18px", color: "#00ff41",
             animation: "glow-green 2s ease-in-out infinite",
-            letterSpacing: "1px",
+            letterSpacing: "2px", lineHeight: 1.4,
           }}>
-            ROCK SCIS PAPER
+            ROCK SCIS<br />PAPER
           </div>
-          <div style={{ fontSize: "8px", color: "#00eaff", marginTop: "4px", textShadow: "0 0 8px #00eaff" }}>
+          <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>
             ONCHAIN EDITION
           </div>
         </div>
@@ -172,18 +174,18 @@ export default function Home() {
         <div style={{
           display: "flex", justifyContent: "space-between",
           background: "#000", border: "2px solid #333",
-          padding: "8px 12px", marginBottom: "12px",
+          padding: "10px 16px", marginBottom: "16px",
           borderRadius: "2px",
         }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "7px", color: "#888", marginBottom: "4px" }}>1UP</div>
-            <div style={{ fontSize: "16px", color: "#00ff41", textShadow: "0 0 8px #00ff41" }}>
+            <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>1UP</div>
+            <div style={{ fontSize: "20px", color: "#00ff41", textShadow: "0 0 8px #00ff41" }}>
               {String(score).padStart(6, "0")}
             </div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "7px", color: "#888", marginBottom: "4px" }}>HI-SCORE</div>
-            <div style={{ fontSize: "16px", color: "#ff003c", textShadow: "0 0 8px #ff003c" }}>
+            <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>HI-SCORE</div>
+            <div style={{ fontSize: "20px", color: "#ff003c", textShadow: "0 0 8px #ff003c" }}>
               {String(best).padStart(6, "0")}
             </div>
           </div>
@@ -194,26 +196,26 @@ export default function Home() {
           background: "#000",
           border: "2px solid #333",
           borderRadius: "2px",
-          padding: "16px",
-          marginBottom: "12px",
+          padding: "20px 16px",
+          marginBottom: "16px",
           textAlign: "center",
-          minHeight: "100px",
+          minHeight: "130px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-around",
         }}>
           <div>
-            <div style={{ fontSize: "7px", color: "#00eaff", marginBottom: "6px" }}>P1</div>
-            <div style={{ fontSize: "40px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>
+            <div style={{ fontSize: "9px", color: "#00eaff", marginBottom: "8px" }}>P1</div>
+            <div style={{ fontSize: "56px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>
               {playerMove ? move(playerMove)?.emoji : "❓"}
             </div>
           </div>
 
           <div style={{
-            fontSize: "10px",
+            fontSize: "13px",
             color: resultColor,
-            textShadow: `0 0 10px ${resultColor}`,
-            animation: result ? "glow-green 1s infinite" : "none",
+            textShadow: `0 0 14px ${resultColor}`,
+            lineHeight: 1.6,
           }}>
             {result === "win" ? "WIN!" :
              result === "draw" ? "DRAW" :
@@ -221,8 +223,8 @@ export default function Home() {
           </div>
 
           <div>
-            <div style={{ fontSize: "7px", color: "#ff6600", marginBottom: "6px" }}>CPU</div>
-            <div style={{ fontSize: "40px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>
+            <div style={{ fontSize: "9px", color: "#ff6600", marginBottom: "8px" }}>CPU</div>
+            <div style={{ fontSize: "56px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>
               {houseMove ? move(houseMove)?.emoji : "❓"}
             </div>
           </div>
@@ -233,33 +235,33 @@ export default function Home() {
           <div style={{
             background: "#000",
             border: "3px solid #ff003c",
-            boxShadow: "0 0 20px #ff003c",
+            boxShadow: "0 0 24px #ff003c",
             borderRadius: "2px",
-            padding: "16px",
+            padding: "20px 16px",
             textAlign: "center",
-            marginBottom: "12px",
+            marginBottom: "16px",
             animation: "shake 0.4s ease-in-out",
           }}>
-            <div style={{ fontSize: "12px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "8px" }}>
+            <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>
               GAME OVER
             </div>
-            <div style={{ fontSize: "7px", color: "#888", marginBottom: "4px" }}>
+            <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>
               CONTINUE?
             </div>
-            <div style={{ fontSize: "20px", color: "#ffe600", marginBottom: "8px", textShadow: "0 0 10px #ffe600" }}>
-              {blink ? ">>> INSERT COIN <<<" : "                   "}
+            <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>
+              {blink ? ">>> INSERT COIN <<<" : ""}
             </div>
-            <div style={{ fontSize: "7px", color: "#666", marginBottom: "12px" }}>
+            <div style={{ fontSize: "8px", color: "#666", marginBottom: "16px" }}>
               0.000002 ETH • 1 CREDIT ONLY
             </div>
-            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
               <button onClick={handleContinue} className="arcade-btn" style={{
                 background: "#1a0000",
                 border: "2px solid #ff003c",
                 color: "#ff003c",
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "8px",
-                padding: "8px 12px",
+                fontSize: "9px",
+                padding: "12px 16px",
                 cursor: "pointer",
                 boxShadow: "0 0 10px #ff003c",
                 transition: "all 0.1s",
@@ -271,8 +273,8 @@ export default function Home() {
                 border: "2px solid #444",
                 color: "#666",
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "8px",
-                padding: "8px 12px",
+                fontSize: "9px",
+                padding: "12px 16px",
                 cursor: "pointer",
                 transition: "all 0.1s",
               }}>
@@ -284,26 +286,26 @@ export default function Home() {
 
         {/* Action buttons */}
         {phase === "idle" && (
-          <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "12px" }}>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "16px" }}>
             {MOVES.map((m) => (
               <button key={m.id} onClick={() => play(m.id)} className="arcade-btn" style={{
                 flex: 1,
                 background: "#0a0a0a",
                 border: "2px solid #00ff41",
-                boxShadow: "0 0 8px #00ff4144, 0 4px 0 #006600",
+                boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
                 borderRadius: "2px",
-                padding: "10px 4px",
+                padding: "14px 4px",
                 cursor: "pointer",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
+                gap: "8px",
                 transition: "all 0.1s",
               }}>
-                <span style={{ fontSize: "28px" }}>{m.emoji}</span>
+                <span style={{ fontSize: "36px" }}>{m.emoji}</span>
                 <span style={{
                   fontFamily: "'Press Start 2P', monospace",
-                  fontSize: "7px",
+                  fontSize: "8px",
                   color: "#00ff41",
                   textShadow: "0 0 6px #00ff41",
                 }}>{m.label}</span>
@@ -315,18 +317,18 @@ export default function Home() {
         {/* Bottom bar */}
         <div style={{
           display: "flex", justifyContent: "space-between",
-          fontSize: "7px", color: "#444",
+          fontSize: "8px", color: "#444",
           borderTop: "1px solid #222",
-          paddingTop: "8px",
+          paddingTop: "10px",
         }}>
-          <span>CREDITS: {credits}</span>
+          <span>CREDITS: 1</span>
           {hasContinued && <span style={{ color: "#ffe600" }}>CONTINUED</span>}
-          <span>BASE</span>
+          <span>BASE CHAIN</span>
         </div>
 
       </div>
 
-      <div style={{ marginTop: "12px", fontSize: "7px", color: "#222", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>
+      <div style={{ marginTop: "14px", fontSize: "7px", color: "#222", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>
         (C) 2025 ONCHAIN ARCADE
       </div>
 
