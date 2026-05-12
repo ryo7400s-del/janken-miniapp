@@ -29,10 +29,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
             appearance: {
               name: "Rock Scissors Paper",
             },
-            attribution: {
-              auto: true,
-              builderCode: "bc_upyavpsc",
-            },
           }}
         >
           {children}
