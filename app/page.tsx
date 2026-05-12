@@ -234,7 +234,7 @@ export default function Home() {
             <button onClick={handleRecordScore} disabled={isPending} style={{ background: "#0a1a0a", border: "2px solid #00ff41", color: "#00ff41", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer", boxShadow: "0 0 16px #00ff41", opacity: isPending ? 0.5 : 1 }}>
               {isPending ? "RECORDING..." : "RECORD"}
             </button>
-            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "Press Start 2P
+            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer" }}>
 cd ~/janken-miniapp
 cat /dev/null > app/page.tsx
 cat > app/page.tsx << 'PART1'
