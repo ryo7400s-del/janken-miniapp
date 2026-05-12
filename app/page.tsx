@@ -67,6 +67,8 @@ function shortAddr(addr: string) {
   return addr.slice(0, 6) + "..." + addr.slice(-4);
 }
 
+type LeaderboardEntry = { address: string; score: number };
+
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
@@ -81,6 +83,9 @@ export default function Home() {
   const [phase, setPhase] = useState("idle");
   const [hasContinued, setHasContinued] = useState(false);
   const [blink, setBlink] = useState(true);
+  const [tab, setTab] = useState<"game" | "board">("game");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(false);
 
   const { data: playerData } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -105,6 +110,23 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
+  async function fetchLeaderboard() {
+    setLoadingBoard(true);
+    const res = await fetch("/api/leaderboard");
+    const data = await res.json();
+    setLeaderboard(data);
+    setLoadingBoard(false);
+  }
+
+  async function submitScore(newBest: number) {
+    if (!address) return;
+    await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, score: newBest }),
+    });
+  }
+
   function play(move: number) {
     if (phase !== "idle") return;
     setPhase("reveal");
@@ -126,7 +148,11 @@ export default function Home() {
     if (res === "win") {
       const ns = score + 1;
       setScore(ns);
-      setBest((b) => Math.max(b, ns));
+      const newBest = Math.max(best, ns);
+      if (ns > best) {
+        setBest(newBest);
+        submitScore(newBest);
+      }
       setTimeout(() => setPhase("idle"), 1500);
     } else if (res === "draw") {
       setTimeout(() => setPhase("idle"), 1500);
@@ -184,6 +210,7 @@ export default function Home() {
       fontFamily: "'Press Start 2P', monospace",
       backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
       boxSizing: "border-box",
+      padding: "16px",
     }}>
 
       <style>{`
@@ -237,12 +264,12 @@ export default function Home() {
       }}>
 
         {/* Title */}
-        <div style={{ textAlign: "center", marginBottom: "16px" }}>
+        <div style={{ textAlign: "center", marginBottom: "12px" }}>
           <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>
             * INSERT COIN *
           </div>
           <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px", lineHeight: 1.4 }}>
-            ROCK SCIS<br />PAPER
+            ROCK SCIS PAPER
           </div>
           <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>
             ONCHAIN EDITION
@@ -250,7 +277,7 @@ export default function Home() {
         </div>
 
         {/* Wallet */}
-        <div style={{ textAlign: "center", marginBottom: "14px" }}>
+        <div style={{ textAlign: "center", marginBottom: "12px" }}>
           {isConnected && address ? (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px" }}>
               <span style={{ fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
@@ -273,7 +300,6 @@ export default function Home() {
                 boxShadow: "0 0 12px #00ff41",
                 color: "#00ff41", fontFamily: "'Press Start 2P', monospace",
                 fontSize: "9px", padding: "10px 20px", cursor: "pointer",
-                transition: "all 0.1s",
               }}
             >
               CONNECT WALLET
@@ -281,118 +307,191 @@ export default function Home() {
           )}
         </div>
 
-        {/* Score board */}
-        <div style={{
-          display: "flex", justifyContent: "space-between",
-          background: "#000", border: "2px solid #333",
-          padding: "10px 16px", marginBottom: "16px",
-        }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>1UP</div>
-            <div style={{ fontSize: "20px", color: "#00ff41", textShadow: "0 0 8px #00ff41" }}>
-              {String(score).padStart(6, "0")}
-            </div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>HI-SCORE</div>
-            <div style={{ fontSize: "20px", color: "#ff003c", textShadow: "0 0 8px #ff003c" }}>
-              {String(best).padStart(6, "0")}
-            </div>
-          </div>
+        {/* Tabs */}
+        <div style={{ display: "flex", marginBottom: "12px", border: "2px solid #333" }}>
+          {(["game", "board"] as const).map((t) => (
+            <button key={t} onClick={() => { setTab(t); if (t === "board") fetchLeaderboard(); }}
+              className="arcade-btn"
+              style={{
+                flex: 1, padding: "8px 4px",
+                background: tab === t ? "#0a1a0a" : "#0a0a0a",
+                border: "none",
+                borderBottom: tab === t ? "2px solid #00ff41" : "2px solid transparent",
+                color: tab === t ? "#00ff41" : "#444",
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: "8px", cursor: "pointer",
+                textShadow: tab === t ? "0 0 6px #00ff41" : "none",
+              }}>
+              {t === "game" ? "GAME" : "RANKING"}
+            </button>
+          ))}
         </div>
 
-        {/* Battle area */}
-        <div style={{
-          background: "#000", border: "2px solid #333",
-          padding: "20px 16px", marginBottom: "16px",
-          textAlign: "center", minHeight: "130px",
-          display: "flex", alignItems: "center", justifyContent: "space-around",
-        }}>
-          <div>
-            <div style={{ fontSize: "9px", color: "#00eaff", marginBottom: "8px" }}>P1</div>
-            <div style={{ fontSize: "56px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>
-              {playerMove ? moveObj(playerMove)?.emoji : "❓"}
+        {/* Game tab */}
+        {tab === "game" && (
+          <>
+            {/* Score board */}
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              background: "#000", border: "2px solid #333",
+              padding: "10px 16px", marginBottom: "12px",
+            }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>1UP</div>
+                <div style={{ fontSize: "20px", color: "#00ff41", textShadow: "0 0 8px #00ff41" }}>
+                  {String(score).padStart(6, "0")}
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>HI-SCORE</div>
+                <div style={{ fontSize: "20px", color: "#ff003c", textShadow: "0 0 8px #ff003c" }}>
+                  {String(best).padStart(6, "0")}
+                </div>
+              </div>
             </div>
-          </div>
-          <div style={{ fontSize: "13px", color: resultColor, textShadow: `0 0 14px ${resultColor}`, lineHeight: 1.6 }}>
-            {result === "win" ? "WIN!" : result === "draw" ? "DRAW" : result === "lose" ? "LOSE" : "VS"}
-          </div>
-          <div>
-            <div style={{ fontSize: "9px", color: "#ff6600", marginBottom: "8px" }}>CPU</div>
-            <div style={{ fontSize: "56px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>
-              {houseMove ? moveObj(houseMove)?.emoji : "❓"}
-            </div>
-          </div>
-        </div>
 
-        {/* Continue screen */}
-        {phase === "lost" && (
-          <div style={{
-            background: "#000", border: "3px solid #ff003c",
-            boxShadow: "0 0 24px #ff003c", padding: "20px 16px",
-            textAlign: "center", marginBottom: "16px",
-            animation: "shake 0.4s ease-in-out",
-          }}>
-            <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>
-              GAME OVER
+            {/* Battle area */}
+            <div style={{
+              background: "#000", border: "2px solid #333",
+              padding: "20px 16px", marginBottom: "12px",
+              textAlign: "center", minHeight: "130px",
+              display: "flex", alignItems: "center", justifyContent: "space-around",
+            }}>
+              <div>
+                <div style={{ fontSize: "9px", color: "#00eaff", marginBottom: "8px" }}>P1</div>
+                <div style={{ fontSize: "56px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>
+                  {playerMove ? moveObj(playerMove)?.emoji : "❓"}
+                </div>
+              </div>
+              <div style={{ fontSize: "13px", color: resultColor, textShadow: `0 0 14px ${resultColor}` }}>
+                {result === "win" ? "WIN!" : result === "draw" ? "DRAW" : result === "lose" ? "LOSE" : "VS"}
+              </div>
+              <div>
+                <div style={{ fontSize: "9px", color: "#ff6600", marginBottom: "8px" }}>CPU</div>
+                <div style={{ fontSize: "56px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>
+                  {houseMove ? moveObj(houseMove)?.emoji : "❓"}
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>CONTINUE?</div>
-            <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>
-              {blink ? ">>> INSERT COIN <<<" : ""}
-            </div>
-            <div style={{ fontSize: "8px", color: "#666", marginBottom: "16px" }}>
-              0.000002 ETH • 1 CREDIT ONLY
-            </div>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-              <button onClick={handleContinue} className="arcade-btn" style={{
-                background: "#1a0000", border: "2px solid #ff003c",
-                color: "#ff003c", fontFamily: "'Press Start 2P', monospace",
-                fontSize: "9px", padding: "12px 16px", cursor: "pointer",
-                boxShadow: "0 0 10px #ff003c", transition: "all 0.1s",
+
+            {/* Continue */}
+            {phase === "lost" && (
+              <div style={{
+                background: "#000", border: "3px solid #ff003c",
+                boxShadow: "0 0 24px #ff003c", padding: "20px 16px",
+                textAlign: "center", marginBottom: "12px",
+                animation: "shake 0.4s ease-in-out",
               }}>
-                CONTINUE
-              </button>
-              <button onClick={handleReset} className="arcade-btn" style={{
-                background: "#0a0a0a", border: "2px solid #444",
-                color: "#666", fontFamily: "'Press Start 2P', monospace",
-                fontSize: "9px", padding: "12px 16px", cursor: "pointer",
-                transition: "all 0.1s",
-              }}>
-                RESET
-              </button>
-            </div>
-          </div>
+                <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>
+                  GAME OVER
+                </div>
+                <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>CONTINUE?</div>
+                <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>
+                  {blink ? ">>> INSERT COIN <<<" : ""}
+                </div>
+                <div style={{ fontSize: "8px", color: "#666", marginBottom: "16px" }}>
+                  0.000002 ETH • 1 CREDIT ONLY
+                </div>
+                <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+                  <button onClick={handleContinue} className="arcade-btn" style={{
+                    background: "#1a0000", border: "2px solid #ff003c",
+                    color: "#ff003c", fontFamily: "'Press Start 2P', monospace",
+                    fontSize: "9px", padding: "12px 16px", cursor: "pointer",
+                    boxShadow: "0 0 10px #ff003c",
+                  }}>
+                    CONTINUE
+                  </button>
+                  <button onClick={handleReset} className="arcade-btn" style={{
+                    background: "#0a0a0a", border: "2px solid #444",
+                    color: "#666", fontFamily: "'Press Start 2P', monospace",
+                    fontSize: "9px", padding: "12px 16px", cursor: "pointer",
+                  }}>
+                    RESET
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            {(phase === "idle" || phase === "reveal") && (
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "12px" }}>
+                {MOVES.map((m) => (
+                  <button key={m.id} onClick={() => play(m.id)} className="arcade-btn"
+                    disabled={phase === "reveal"}
+                    style={{
+                      flex: 1, background: "#0a0a0a",
+                      border: "2px solid #00ff41",
+                      boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
+                      borderRadius: "2px", padding: "14px 4px",
+                      cursor: phase === "idle" ? "pointer" : "default",
+                      opacity: phase === "reveal" ? 0.5 : 1,
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
+                    }}>
+                    <span style={{ fontSize: "36px" }}>{m.emoji}</span>
+                    <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
+                      {m.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
-        {/* Action buttons */}
-        {(phase === "idle" || phase === "reveal") && (
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "16px" }}>
-            {MOVES.map((m) => (
-              <button key={m.id} onClick={() => play(m.id)} className="arcade-btn"
-                disabled={phase === "reveal"}
-                style={{
-                  flex: 1, background: "#0a0a0a",
-                  border: "2px solid #00ff41",
-                  boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
-                  borderRadius: "2px", padding: "14px 4px", cursor: phase === "idle" ? "pointer" : "default",
-                  opacity: phase === "reveal" ? 0.5 : 1,
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
-                  transition: "all 0.1s",
+        {/* Leaderboard tab */}
+        {tab === "board" && (
+          <div style={{ background: "#000", border: "2px solid #333", padding: "12px" }}>
+            <div style={{ fontSize: "10px", color: "#ffe600", textShadow: "0 0 8px #ffe600", textAlign: "center", marginBottom: "12px" }}>
+              TOP PLAYERS
+            </div>
+            {loadingBoard ? (
+              <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>
+                LOADING...
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>
+                NO RECORDS YET
+              </div>
+            ) : (
+              leaderboard.map((entry, i) => (
+                <div key={entry.address} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "8px 4px",
+                  borderBottom: "1px solid #1a1a1a",
                 }}>
-                <span style={{ fontSize: "36px" }}>{m.emoji}</span>
-                <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
-                  {m.label}
-                </span>
-              </button>
-            ))}
+                  <span style={{
+                    fontSize: "9px",
+                    color: i === 0 ? "#ffe600" : i === 1 ? "#aaaaaa" : i === 2 ? "#ff6600" : "#444",
+                    textShadow: i === 0 ? "0 0 8px #ffe600" : "none",
+                    minWidth: "24px",
+                  }}>
+                    {i === 0 ? "👑" : `#${i + 1}`}
+                  </span>
+                  <span style={{ fontSize: "8px", color: "#00eaff", flex: 1, marginLeft: "8px" }}>
+                    {shortAddr(entry.address)}
+                  </span>
+                  <span style={{ fontSize: "10px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
+                    {String(entry.score).padStart(4, "0")}
+                  </span>
+                </div>
+              ))
+            )}
+            <button onClick={fetchLeaderboard} className="arcade-btn" style={{
+              width: "100%", marginTop: "12px",
+              background: "#0a0a0a", border: "1px solid #333",
+              color: "#444", fontFamily: "'Press Start 2P', monospace",
+              fontSize: "7px", padding: "8px", cursor: "pointer",
+            }}>
+              REFRESH
+            </button>
           </div>
         )}
 
-        {/* Bottom bar */}
+        {/* Bottom */}
         <div style={{
           display: "flex", justifyContent: "space-between",
-          fontSize: "8px", color: "#444",
-          borderTop: "1px solid #222", paddingTop: "10px",
+          fontSize: "7px", color: "#333",
+          borderTop: "1px solid #222", paddingTop: "10px", marginTop: "12px",
         }}>
           <span>CREDITS: 1</span>
           {hasContinued && <span style={{ color: "#ffe600" }}>CONTINUED</span>}
@@ -401,7 +500,7 @@ export default function Home() {
 
       </div>
 
-      <div style={{ marginTop: "14px", fontSize: "7px", color: "#222", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>
+      <div style={{ marginTop: "14px", fontSize: "7px", color: "#1a1a1a", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>
         (C) 2025 ONCHAIN ARCADE
       </div>
 
