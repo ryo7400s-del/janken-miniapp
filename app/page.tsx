@@ -7,40 +7,10 @@ import { WalletConnect } from "./components/WalletConnect";
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
 const ABI = [
-  {
-    name: "play",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "playerMove", type: "uint8" }],
-    outputs: [],
-  },
-  {
-    name: "continuePlaying",
-    type: "function",
-    stateMutability: "payable",
-    inputs: [],
-    outputs: [],
-  },
-  {
-    name: "reset",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [],
-    outputs: [],
-  },
-  {
-    name: "getPlayer",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "addr", type: "address" }],
-    outputs: [
-      { name: "score", type: "uint256" },
-      { name: "highScore", type: "uint256" },
-      { name: "isAlive", type: "bool" },
-      { name: "hasContinued", type: "bool" },
-      { name: "continuePending", type: "bool" },
-    ],
-  },
+  { name: "play", type: "function", stateMutability: "nonpayable", inputs: [{ name: "playerMove", type: "uint8" }], outputs: [] },
+  { name: "continuePlaying", type: "function", stateMutability: "payable", inputs: [], outputs: [] },
+  { name: "reset", type: "function", stateMutability: "nonpayable", inputs: [], outputs: [] },
+  { name: "getPlayer", type: "function", stateMutability: "view", inputs: [{ name: "addr", type: "address" }], outputs: [{ name: "score", type: "uint256" }, { name: "highScore", type: "uint256" }, { name: "isAlive", type: "bool" }, { name: "hasContinued", type: "bool" }, { name: "continuePending", type: "bool" }] },
 ] as const;
 
 const MOVES = [
@@ -51,11 +21,7 @@ const MOVES = [
 
 function judge(p: number, h: number): "win" | "draw" | "lose" {
   if (p === h) return "draw";
-  if (
-    (p === 1 && h === 2) ||
-    (p === 2 && h === 3) ||
-    (p === 3 && h === 1)
-  ) return "win";
+  if ((p === 1 && h === 2) || (p === 2 && h === 3) || (p === 3 && h === 1)) return "win";
   return "lose";
 }
 
@@ -68,7 +34,6 @@ type LeaderboardEntry = { address: string; score: number };
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { writeContract, isPending } = useWriteContract();
-
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [playerMove, setPlayerMove] = useState<number | null>(null);
@@ -106,7 +71,6 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
-  // カウントダウン処理
   useEffect(() => {
     if (phase !== "gameover") return;
     setCountdown(3);
@@ -156,50 +120,26 @@ export default function Home() {
     setHouseMove(hm);
     const res = judge(move, hm);
     setResult(res);
-
     if (isConnected) {
-      writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: ABI,
-        functionName: "play",
-        args: [move],
-      }, {
-        onSuccess: () => setTimeout(() => refetch(), 2000),
-      });
+      writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: "play", args: [move] }, { onSuccess: () => setTimeout(() => refetch(), 2000) });
     }
-
     if (res === "win") {
       const ns = score + 1;
       setScore(ns);
       const newBest = Math.max(best, ns);
-      if (ns > best) {
-        setBest(newBest);
-        submitScore(newBest);
-      }
+      if (ns > best) { setBest(newBest); submitScore(newBest); }
       setTimeout(() => setPhase("idle"), 1500);
     } else if (res === "draw") {
       setTimeout(() => setPhase("idle"), 1500);
     } else {
-      if (!hasContinued) {
-        // 1回目の負け → コンティニュー画面
-        setTimeout(() => setPhase("lost"), 800);
-      } else {
-        // 2回目の負け → ゲームオーバー演出
-        setTimeout(() => setPhase("gameover"), 800);
-      }
+      if (!hasContinued) { setTimeout(() => setPhase("lost"), 800); }
+      else { setTimeout(() => setPhase("gameover"), 800); }
     }
   }
 
   function handleContinue() {
     if (isConnected) {
-      writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: ABI,
-        functionName: "continuePlaying",
-        value: parseEther("0.000002"),
-      }, {
-        onSuccess: () => setTimeout(() => refetch(), 2000),
-      });
+      writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: "continuePlaying", value: parseEther("0.000002") }, { onSuccess: () => setTimeout(() => refetch(), 2000) });
     }
     setHasContinued(true);
     setPhase("idle");
@@ -207,296 +147,114 @@ export default function Home() {
 
   function handleReset() {
     if (isConnected) {
-      writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: ABI,
-        functionName: "reset",
-      }, {
-        onSuccess: () => setTimeout(() => refetch(), 2000),
-      });
+      writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: "reset" }, { onSuccess: () => setTimeout(() => refetch(), 2000) });
     }
-    // リセット → ゲームオーバー演出
     setPhase("gameover");
   }
 
   const moveObj = (id: number) => MOVES.find((m) => m.id === id);
-
-  const resultColor =
-    result === "win" ? "#00ff41" :
-    result === "draw" ? "#ffe600" :
-    result === "lose" ? "#ff003c" : "#00eaff";
+  const resultColor = result === "win" ? "#00ff41" : result === "draw" ? "#ffe600" : result === "lose" ? "#ff003c" : "#00eaff";
 
   return (
     <main style={{
-      minHeight: "100vh",
-      width: "100vw",
+      minHeight: "100vh", width: "100vw",
       background: flash ? "#ff003c" : "#0a0a0a",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       fontFamily: "'Press Start 2P', monospace",
       backgroundImage: flash ? "none" : "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
-      boxSizing: "border-box",
-      padding: "16px",
-      transition: "background 0.1s",
+      boxSizing: "border-box", padding: "16px", transition: "background 0.1s",
     }}>
-
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        @keyframes scanline {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(100vh); }
-        }
-        @keyframes flicker {
-          0%,100% { opacity:1; }
-          92% { opacity:1; }
-          93% { opacity:0.4; }
-          94% { opacity:1; }
-          96% { opacity:0.6; }
-          97% { opacity:1; }
-        }
-        @keyframes glow-green {
-          0%,100% { text-shadow: 0 0 8px #00ff41, 0 0 20px #00ff41; }
-          50% { text-shadow: 0 0 20px #00ff41, 0 0 50px #00ff41, 0 0 100px #00ff41; }
-        }
-        @keyframes shake {
-          0%,100% { transform: translateX(0); }
-          25% { transform: translateX(-12px); }
-          75% { transform: translateX(12px); }
-        }
-        @keyframes pop {
-          0% { transform: scale(0.5); opacity:0; }
-          70% { transform: scale(1.2); }
-          100% { transform: scale(1); opacity:1; }
-        }
-        @keyframes big-shake {
-          0%,100% { transform: translate(0,0) rotate(0deg); }
-          20% { transform: translate(-10px, 5px) rotate(-3deg); }
-          40% { transform: translate(10px, -5px) rotate(3deg); }
-          60% { transform: translate(-8px, 3px) rotate(-2deg); }
-          80% { transform: translate(8px, -3px) rotate(2deg); }
-        }
-        @keyframes countdown-pop {
-          0% { transform: scale(2); opacity:0; }
-          50% { transform: scale(1.2); opacity:1; }
-          100% { transform: scale(1); opacity:1; }
-        }
-        @keyframes glitch {
-          0%,100% { clip-path: inset(0 0 100% 0); }
-          20% { clip-path: inset(20% 0 50% 0); transform: translateX(-4px); }
-          40% { clip-path: inset(60% 0 10% 0); transform: translateX(4px); }
-          60% { clip-path: inset(40% 0 30% 0); transform: translateX(-2px); }
-        }
+        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+        @keyframes flicker { 0%,100% { opacity:1; } 92% { opacity:1; } 93% { opacity:0.4; } 94% { opacity:1; } 96% { opacity:0.6; } 97% { opacity:1; } }
+        @keyframes glow-green { 0%,100% { text-shadow: 0 0 8px #00ff41, 0 0 20px #00ff41; } 50% { text-shadow: 0 0 20px #00ff41, 0 0 50px #00ff41, 0 0 100px #00ff41; } }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-12px); } 75% { transform: translateX(12px); } }
+        @keyframes pop { 0% { transform: scale(0.5); opacity:0; } 70% { transform: scale(1.2); } 100% { transform: scale(1); opacity:1; } }
+        @keyframes big-shake { 0%,100% { transform: translate(0,0) rotate(0deg); } 20% { transform: translate(-10px,5px) rotate(-3deg); } 40% { transform: translate(10px,-5px) rotate(3deg); } 60% { transform: translate(-8px,3px) rotate(-2deg); } 80% { transform: translate(8px,-3px) rotate(2deg); } }
+        @keyframes countdown-pop { 0% { transform: scale(2); opacity:0; } 50% { transform: scale(1.2); opacity:1; } 100% { transform: scale(1); opacity:1; } }
         .arcade-btn:hover { background: #1a1a1a !important; transform: translateY(-3px); }
         .arcade-btn:active { transform: translateY(2px); }
       `}</style>
 
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, height: "80px",
-        background: "linear-gradient(transparent, rgba(0,255,65,0.06), transparent)",
-        animation: "scanline 3s linear infinite",
-        pointerEvents: "none", zIndex: 10,
-      }} />
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "80px", background: "linear-gradient(transparent, rgba(0,255,65,0.06), transparent)", animation: "scanline 3s linear infinite", pointerEvents: "none", zIndex: 10 }} />
 
-      {/* ゲームオーバー演出オーバーレイ */}
       {phase === "gameover" && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 100,
-          background: "rgba(0,0,0,0.85)",
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          animation: "big-shake 0.5s ease-in-out",
-        }}>
-          <div style={{
-            fontSize: "28px", color: "#ff003c",
-            textShadow: "0 0 20px #ff003c, 0 0 60px #ff003c",
-            marginBottom: "16px",
-            animation: "big-shake 0.3s ease-in-out infinite",
-          }}>
-            GAME OVER
-          </div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "24px" }}>
-            SCORE RESET
-          </div>
-          <div style={{
-            fontSize: "12px", color: "#888", marginBottom: "12px",
-          }}>
-            NEW GAME IN...
-          </div>
-          <div style={{
-            fontSize: "64px", color: "#ffe600",
-            textShadow: "0 0 30px #ffe600, 0 0 80px #ffe600",
-            animation: "countdown-pop 0.8s ease-out",
-            key: countdown,
-          }}>
-            {countdown}
-          </div>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "big-shake 0.5s ease-in-out" }}>
+          <div style={{ fontSize: "28px", color: "#ff003c", textShadow: "0 0 20px #ff003c, 0 0 60px #ff003c", marginBottom: "16px", animation: "big-shake 0.3s ease-in-out infinite" }}>GAME OVER</div>
+          <div style={{ fontSize: "12px", color: "#666", marginBottom: "24px" }}>SCORE RESET</div>
+          <div style={{ fontSize: "12px", color: "#888", marginBottom: "12px" }}>NEW GAME IN...</div>
+          <div style={{ fontSize: "64px", color: "#ffe600", textShadow: "0 0 30px #ffe600, 0 0 80px #ffe600", animation: "countdown-pop 0.8s ease-out" }}>{countdown}</div>
         </div>
       )}
 
-      <div style={{
-        width: "100%",
-        maxWidth: "480px",
-        border: `3px solid ${phase === "gameover" ? "#ff003c" : "#00ff41"}`,
-        boxShadow: phase === "gameover"
-          ? "0 0 40px #ff003c, inset 0 0 30px rgba(255,0,60,0.1)"
-          : "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)",
-        borderRadius: "4px",
-        padding: "20px 16px",
-        animation: phase === "gameover" ? "big-shake 0.4s ease-in-out" : "flicker 8s infinite",
-        transition: "border-color 0.3s, box-shadow 0.3s",
-      }}>
+      <div style={{ width: "100%", maxWidth: "480px", border: `3px solid ${phase === "gameover" ? "#ff003c" : "#00ff41"}`, boxShadow: phase === "gameover" ? "0 0 40px #ff003c, inset 0 0 30px rgba(255,0,60,0.1)" : "0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.05)", borderRadius: "4px", padding: "20px 16px", animation: phase === "gameover" ? "big-shake 0.4s ease-in-out" : "flicker 8s infinite" }}>
 
-        {/* Title */}
         <div style={{ textAlign: "center", marginBottom: "12px" }}>
-          <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>
-            * INSERT COIN *
-          </div>
-          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>
-            ROCK SCIS PAPER
-          </div>
-          <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>
-            ONCHAIN EDITION
-          </div>
+          <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>* INSERT COIN *</div>
+          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>ROCK SCIS PAPER</div>
+          <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>ONCHAIN EDITION</div>
         </div>
 
-        {/* Wallet */}
-        <div style={{ marginBottom: "12px" }}>
-          <WalletConnect />
-        </div>
+        <div style={{ marginBottom: "12px" }}><WalletConnect /></div>
 
-        {isPending && (
-          <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>
-            TX PENDING...
-          </div>
-        )}
+        {isPending && <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>TX PENDING...</div>}
 
-        {/* Tabs */}
         <div style={{ display: "flex", marginBottom: "12px", border: "2px solid #333" }}>
           {(["game", "board"] as const).map((t) => (
-            <button key={t} onClick={() => { setTab(t); if (t === "board") fetchLeaderboard(); }}
-              className="arcade-btn"
-              style={{
-                flex: 1, padding: "8px 4px",
-                background: tab === t ? "#0a1a0a" : "#0a0a0a",
-                border: "none",
-                borderBottom: tab === t ? "2px solid #00ff41" : "2px solid transparent",
-                color: tab === t ? "#00ff41" : "#444",
-                fontFamily: "'Press Start 2P', monospace",
-                fontSize: "8px", cursor: "pointer",
-                textShadow: tab === t ? "0 0 6px #00ff41" : "none",
-              }}>
+            <button key={t} onClick={() => { setTab(t); if (t === "board") fetchLeaderboard(); }} className="arcade-btn" style={{ flex: 1, padding: "8px 4px", background: tab === t ? "#0a1a0a" : "#0a0a0a", border: "none", borderBottom: tab === t ? "2px solid #00ff41" : "2px solid transparent", color: tab === t ? "#00ff41" : "#444", fontFamily: "'Press Start 2P', monospace", fontSize: "8px", cursor: "pointer", textShadow: tab === t ? "0 0 6px #00ff41" : "none" }}>
               {t === "game" ? "GAME" : "RANKING"}
             </button>
           ))}
         </div>
 
-        {/* Game tab */}
         {tab === "game" && (
           <>
-            {/* Score */}
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              background: "#000", border: "2px solid #333",
-              padding: "10px 16px", marginBottom: "12px",
-            }}>
+            <div style={{ display: "flex", justifyContent: "space-between", background: "#000", border: "2px solid #333", padding: "10px 16px", marginBottom: "12px" }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>1UP</div>
-                <div style={{ fontSize: "20px", color: "#00ff41", textShadow: "0 0 8px #00ff41" }}>
-                  {String(score).padStart(6, "0")}
-                </div>
+                <div style={{ fontSize: "20px", color: "#00ff41", textShadow: "0 0 8px #00ff41" }}>{String(score).padStart(6, "0")}</div>
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "8px", color: "#888", marginBottom: "6px" }}>HI-SCORE</div>
-                <div style={{ fontSize: "20px", color: "#ff003c", textShadow: "0 0 8px #ff003c" }}>
-                  {String(best).padStart(6, "0")}
-                </div>
+                <div style={{ fontSize: "20px", color: "#ff003c", textShadow: "0 0 8px #ff003c" }}>{String(best).padStart(6, "0")}</div>
               </div>
             </div>
 
-            {/* Battle */}
-            <div style={{
-              background: "#000", border: "2px solid #333",
-              padding: "20px 16px", marginBottom: "12px",
-              textAlign: "center", minHeight: "130px",
-              display: "flex", alignItems: "center", justifyContent: "space-around",
-            }}>
+            <div style={{ background: "#000", border: "2px solid #333", padding: "20px 16px", marginBottom: "12px", textAlign: "center", minHeight: "130px", display: "flex", alignItems: "center", justifyContent: "space-around" }}>
               <div>
                 <div style={{ fontSize: "9px", color: "#00eaff", marginBottom: "8px" }}>P1</div>
-                <div style={{ fontSize: "56px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>
-                  {playerMove ? moveObj(playerMove)?.emoji : "❓"}
-                </div>
+                <div style={{ fontSize: "56px", animation: playerMove ? "pop 0.3s ease-out" : "none" }}>{playerMove ? moveObj(playerMove)?.emoji : "❓"}</div>
               </div>
               <div style={{ fontSize: "13px", color: resultColor, textShadow: `0 0 14px ${resultColor}` }}>
                 {result === "win" ? "WIN!" : result === "draw" ? "DRAW" : result === "lose" ? "LOSE" : "VS"}
               </div>
               <div>
                 <div style={{ fontSize: "9px", color: "#ff6600", marginBottom: "8px" }}>CPU</div>
-                <div style={{ fontSize: "56px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>
-                  {houseMove ? moveObj(houseMove)?.emoji : "❓"}
-                </div>
+                <div style={{ fontSize: "56px", animation: houseMove ? "pop 0.3s ease-out" : "none" }}>{houseMove ? moveObj(houseMove)?.emoji : "❓"}</div>
               </div>
             </div>
 
-            {/* Continue screen */}
             {phase === "lost" && (
-              <div style={{
-                background: "#000", border: "3px solid #ff003c",
-                boxShadow: "0 0 24px #ff003c", padding: "20px 16px",
-                textAlign: "center", marginBottom: "12px",
-                animation: "shake 0.4s ease-in-out",
-              }}>
-                <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>
-                  GAME OVER
-                </div>
+              <div style={{ background: "#000", border: "3px solid #ff003c", boxShadow: "0 0 24px #ff003c", padding: "20px 16px", textAlign: "center", marginBottom: "12px", animation: "shake 0.4s ease-in-out" }}>
+                <div style={{ fontSize: "14px", color: "#ff003c", textShadow: "0 0 10px #ff003c", marginBottom: "10px" }}>GAME OVER</div>
                 <div style={{ fontSize: "9px", color: "#888", marginBottom: "6px" }}>CONTINUE?</div>
-                <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>
-                  {blink ? ">>> INSERT COIN <<<" : ""}
-                </div>
-                <div style={{ fontSize: "8px", color: "#666", marginBottom: "16px" }}>
-                  0.000002 ETH • 1 CREDIT ONLY
-                </div>
+                <div style={{ fontSize: "11px", color: "#ffe600", marginBottom: "10px", textShadow: "0 0 10px #ffe600", minHeight: "20px" }}>{blink ? ">>> INSERT COIN <<<" : ""}</div>
+                <div style={{ fontSize: "8px", color: "#666", marginBottom: "16px" }}>0.000002 ETH • 1 CREDIT ONLY</div>
                 <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                  <button onClick={handleContinue} className="arcade-btn" style={{
-                    background: "#1a0000", border: "2px solid #ff003c",
-                    color: "#ff003c", fontFamily: "'Press Start 2P', monospace",
-                    fontSize: "9px", padding: "12px 16px", cursor: "pointer",
-                    boxShadow: "0 0 10px #ff003c",
-                  }}>
-                    CONTINUE
-                  </button>
-                  <button onClick={handleReset} className="arcade-btn" style={{
-                    background: "#0a0a0a", border: "2px solid #444",
-                    color: "#666", fontFamily: "'Press Start 2P', monospace",
-                    fontSize: "9px", padding: "12px 16px", cursor: "pointer",
-                  }}>
-                    RESET
-                  </button>
+                  <button onClick={handleContinue} className="arcade-btn" style={{ background: "#1a0000", border: "2px solid #ff003c", color: "#ff003c", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer", boxShadow: "0 0 10px #ff003c" }}>CONTINUE</button>
+                  <button onClick={handleReset} className="arcade-btn" style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer" }}>RESET</button>
                 </div>
               </div>
             )}
 
-            {/* Action buttons */}
             {(phase === "idle" || phase === "reveal") && (
               <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginBottom: "12px" }}>
                 {MOVES.map((m) => (
-                  <button key={m.id} onClick={() => play(m.id)} className="arcade-btn"
-                    disabled={phase === "reveal" || isPending}
-                    style={{
-                      flex: 1, background: "#0a0a0a",
-                      border: "2px solid #00ff41",
-                      boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600",
-                      borderRadius: "2px", padding: "14px 4px",
-                      cursor: phase === "idle" && !isPending ? "pointer" : "default",
-                      opacity: phase === "reveal" || isPending ? 0.5 : 1,
-                      display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
-                    }}>
+                  <button key={m.id} onClick={() => play(m.id)} className="arcade-btn" disabled={phase === "reveal" || isPending} style={{ flex: 1, background: "#0a0a0a", border: "2px solid #00ff41", boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600", borderRadius: "2px", padding: "14px 4px", cursor: phase === "idle" && !isPending ? "pointer" : "default", opacity: phase === "reveal" || isPending ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "36px" }}>{m.emoji}</span>
-                    <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
-                      {m.label}
-                    </span>
+                    <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>{m.label}</span>
                   </button>
                 ))}
               </div>
@@ -504,65 +262,34 @@ export default function Home() {
           </>
         )}
 
-        {/* Leaderboard */}
         {tab === "board" && (
           <div style={{ background: "#000", border: "2px solid #333", padding: "12px" }}>
-            <div style={{ fontSize: "10px", color: "#ffe600", textShadow: "0 0 8px #ffe600", textAlign: "center", marginBottom: "12px" }}>
-              TOP PLAYERS
-            </div>
+            <div style={{ fontSize: "10px", color: "#ffe600", textShadow: "0 0 8px #ffe600", textAlign: "center", marginBottom: "12px" }}>TOP PLAYERS</div>
             {loadingBoard ? (
               <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>LOADING...</div>
             ) : leaderboard.length === 0 ? (
               <div style={{ textAlign: "center", fontSize: "8px", color: "#444", padding: "20px" }}>NO RECORDS YET</div>
             ) : (
               leaderboard.map((entry, i) => (
-                <div key={entry.address} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "8px 4px", borderBottom: "1px solid #1a1a1a",
-                }}>
-                  <span style={{
-                    fontSize: "9px",
-                    color: i === 0 ? "#ffe600" : i === 1 ? "#aaaaaa" : i === 2 ? "#ff6600" : "#444",
-                    textShadow: i === 0 ? "0 0 8px #ffe600" : "none", minWidth: "24px",
-                  }}>
-                    {i === 0 ? "👑" : `#${i + 1}`}
-                  </span>
-                  <span style={{ fontSize: "8px", color: "#00eaff", flex: 1, marginLeft: "8px" }}>
-                    {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
-                  </span>
-                  <span style={{ fontSize: "10px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>
-                    {String(entry.score).padStart(4, "0")}
-                  </span>
+                <div key={entry.address} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px", borderBottom: "1px solid #1a1a1a" }}>
+                  <span style={{ fontSize: "9px", color: i === 0 ? "#ffe600" : i === 1 ? "#aaaaaa" : i === 2 ? "#ff6600" : "#444", textShadow: i === 0 ? "0 0 8px #ffe600" : "none", minWidth: "24px" }}>{i === 0 ? "👑" : `#${i + 1}`}</span>
+                  <span style={{ fontSize: "8px", color: "#00eaff", flex: 1, marginLeft: "8px" }}>{entry.address.slice(0, 6)}...{entry.address.slice(-4)}</span>
+                  <span style={{ fontSize: "10px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>{String(entry.score).padStart(4, "0")}</span>
                 </div>
               ))
             )}
-            <button onClick={fetchLead
-              width: "100%", marginTop: "12px",
-              background: "#0a0a0a", border: "1px solid #333",
-              color: "#444", fontFamily: "'Press Start 2P', monospace",
-              fontSize: "7px", padding: "8px", cursor: "pointer",
-            }}>
-              REFRESH
-            </button>
+            <button onClick={fetchLeaderboard} className="arcade-btn" style={{ width: "100%", marginTop: "12px", background: "#0a0a0a", border: "1px solid #333", color: "#444", fontFamily: "'Press Start 2P', monospace", fontSize: "7px", padding: "8px", cursor: "pointer" }}>REFRESH</button>
           </div>
         )}
 
-        <div style={{
-          display: "flex", justifyContent: "space-between",
-          fontSize: "7px", color: "#333",
-          borderTop: "1px solid #222", paddingTop: "10px", marginTop: "12px",
-        }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "7px", color: "#333", borderTop: "1px solid #222", paddingTop: "10px", marginTop: "12px" }}>
           <span>CREDITS: 1</span>
           {hasContinued && <span style={{ color: "#ffe600" }}>CONTINUED</span>}
           <span>BASE</span>
         </div>
 
       </div>
-
-      <div style={{ marginTop: "14px", fontSize: "7px", color: "#1a1a1a", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>
-        (C) 2025 ONCHAIN ARCADE
-      </div>
-
+      <div style={{ marginTop: "14px", fontSize: "7px", color: "#1a1a1a", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>(C) 2025 ONCHAIN ARCADE</div>
     </main>
   );
 }
