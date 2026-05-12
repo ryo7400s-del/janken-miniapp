@@ -196,7 +196,7 @@ export default function Home() {
       minHeight: "100vh", width: "100vw",
       background: flash ? "#ff003c" : "#0a0a0a",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Press Start 2P', monospace",
+      fontFamily: "Press Start 2P, monospace",
       backgroundImage: flash ? "none" : "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
       boxSizing: "border-box", padding: "16px", transition: "background 0.1s",
     }}>
@@ -231,10 +231,10 @@ export default function Home() {
           <div style={{ fontSize: "48px", color: "#00ff41", textShadow: "0 0 30px #00ff41", marginBottom: "8px" }}>{pendingHighScore}</div>
           <div style={{ fontSize: "8px", color: "#888", marginBottom: "24px", textAlign: "center", lineHeight: 2 }}>Record on Base blockchain?</div>
           <div style={{ display: "flex", gap: "12px" }}>
-            <button onClick={handleRecordScore} disabled={isPending} style={{ background: "#0a1a0a", border: "2px solid #00ff41", color: "#00ff41", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer", boxShadow: "0 0 16px #00ff41", opacity: isPending ? 0.5 : 1 }}>
+            <button onClick={handleRecordScore} disabled={isPending} style={{ background: "#0a1a0a", border: "2px solid #00ff41", color: "#00ff41", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer", boxShadow: "0 0 16px #00ff41", opacity: isPending ? 0.5 : 1 }}>
               {isPending ? "RECORDING..." : "RECORD"}
             </button>
-            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "'Press Start 2P'
+            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "Press Start 2P
 cd ~/janken-miniapp
 cat /dev/null > app/page.tsx
 cat > app/page.tsx << 'PART1'
@@ -438,7 +438,7 @@ cat >> app/page.tsx << 'PART2'
       minHeight: "100vh", width: "100vw",
       background: flash ? "#ff003c" : "#0a0a0a",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Press Start 2P', monospace",
+      fontFamily: "Press Start 2P, monospace",
       backgroundImage: flash ? "none" : "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px)",
       boxSizing: "border-box", padding: "16px", transition: "background 0.1s",
     }}>
@@ -473,10 +473,10 @@ cat >> app/page.tsx << 'PART2'
           <div style={{ fontSize: "48px", color: "#00ff41", textShadow: "0 0 30px #00ff41", marginBottom: "8px" }}>{pendingHighScore}</div>
           <div style={{ fontSize: "8px", color: "#888", marginBottom: "24px", textAlign: "center", lineHeight: 2 }}>Record on Base blockchain?</div>
           <div style={{ display: "flex", gap: "12px" }}>
-            <button onClick={handleRecordScore} disabled={isPending} style={{ background: "#0a1a0a", border: "2px solid #00ff41", color: "#00ff41", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer", boxShadow: "0 0 16px #00ff41", opacity: isPending ? 0.5 : 1 }}>
+            <button onClick={handleRecordScore} disabled={isPending} style={{ background: "#0a1a0a", border: "2px solid #00ff41", color: "#00ff41", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer", boxShadow: "0 0 16px #00ff41", opacity: isPending ? 0.5 : 1 }}>
               {isPending ? "RECORDING..." : "RECORD"}
             </button>
-            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer" }}>
+            <button onClick={() => { setPendingHighScore(null); setPhase("gameover"); }} style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "14px 20px", cursor: "pointer" }}>
               SKIP
             </button>
           </div>
@@ -500,7 +500,7 @@ cat >> app/page.tsx << 'PART2'
 
         <div style={{ display: "flex", marginBottom: "12px", border: "2px solid #333" }}>
           {(["game", "board"] as const).map((t) => (
-            <button key={t} onClick={() => { setTab(t); if (t === "board") fetchLeaderboard(); }} className="arcade-btn" style={{ flex: 1, padding: "8px 4px", background: tab === t ? "#0a1a0a" : "#0a0a0a", border: "none", borderBottom: tab === t ? "2px solid #00ff41" : "2px solid transparent", color: tab === t ? "#00ff41" : "#444", fontFamily: "'Press Start 2P', monospace", fontSize: "8px", cursor: "pointer", textShadow: tab === t ? "0 0 6px #00ff41" : "none" }}>
+            <button key={t} onClick={() => { setTab(t); if (t === "board") fetchLeaderboard(); }} className="arcade-btn" style={{ flex: 1, padding: "8px 4px", background: tab === t ? "#0a1a0a" : "#0a0a0a", border: "none", borderBottom: tab === t ? "2px solid #00ff41" : "2px solid transparent", color: tab === t ? "#00ff41" : "#444", fontFamily: "Press Start 2P, monospace", fontSize: "8px", cursor: "pointer", textShadow: tab === t ? "0 0 6px #00ff41" : "none" }}>
               {t === "game" ? "GAME" : "RANKING"}
             </button>
           ))}
@@ -541,10 +541,10 @@ cat >> app/page.tsx << 'PART2'
                 <div style={{ fontSize: "8px", color: "#666", marginBottom: "4px" }}>0.000002 ETH • 1 CREDIT ONLY</div>
                 <div style={{ fontSize: "7px", color: "#444", marginBottom: "16px" }}>Wallet connection required</div>
                 <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                  <button onClick={handleContinue} className="arcade-btn" style={{ background: "#1a0000", border: "2px solid #ff003c", color: "#ff003c", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer", boxShadow: "0 0 10px #ff003c", opacity: isPending ? 0.5 : 1 }}>
+                  <button onClick={handleContinue} className="arcade-btn" style={{ background: "#1a0000", border: "2px solid #ff003c", color: "#ff003c", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer", boxShadow: "0 0 10px #ff003c", opacity: isPending ? 0.5 : 1 }}>
                     {isPending ? "PENDING..." : "CONTINUE"}
                   </button>
-                  <button onClick={handleReset} className="arcade-btn" style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "'Press Start 2P', monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer" }}>RESET</button>
+                  <button onClick={handleReset} className="arcade-btn" style={{ background: "#0a0a0a", border: "2px solid #444", color: "#666", fontFamily: "Press Start 2P, monospace", fontSize: "9px", padding: "12px 16px", cursor: "pointer" }}>RESET</button>
                 </div>
               </div>
             )}
@@ -554,7 +554,7 @@ cat >> app/page.tsx << 'PART2'
                 {MOVES.map((m) => (
                   <button key={m.id} onClick={() => play(m.id)} className="arcade-btn" disabled={phase === "reveal"} style={{ flex: 1, background: "#0a0a0a", border: "2px solid #00ff41", boxShadow: "0 0 10px #00ff4144, 0 5px 0 #006600", borderRadius: "2px", padding: "14px 4px", cursor: phase === "idle" ? "pointer" : "default", opacity: phase === "reveal" ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "36px" }}>{m.emoji}</span>
-                    <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>{m.label}</span>
+                    <span style={{ fontFamily: "Press Start 2P, monospace", fontSize: "8px", color: "#00ff41", textShadow: "0 0 6px #00ff41" }}>{m.label}</span>
                   </button>
                 ))}
               </div>
@@ -578,7 +578,7 @@ cat >> app/page.tsx << 'PART2'
                 </div>
               ))
             )}
-            <button onClick={fetchLeaderboard} className="arcade-btn" style={{ width: "100%", marginTop: "12px", background: "#0a0a0a", border: "1px solid #333", color: "#444", fontFamily: "'Press Start 2P', monospace", fontSize: "7px", padding: "8px", cursor: "pointer" }}>REFRESH</button>
+            <button onClick={fetchLeaderboard} className="arcade-btn" style={{ width: "100%", marginTop: "12px", background: "#0a0a0a", border: "1px solid #333", color: "#444", fontFamily: "Press Start 2P, monospace", fontSize: "7px", padding: "8px", cursor: "pointer" }}>REFRESH</button>
           </div>
         )}
 
@@ -589,7 +589,7 @@ cat >> app/page.tsx << 'PART2'
         </div>
 
       </div>
-      <div style={{ marginTop: "14px", fontSize: "7px", color: "#1a1a1a", textAlign: "center", fontFamily: "'Press Start 2P', monospace" }}>(C) 2025 ONCHAIN ARCADE</div>
+      <div style={{ marginTop: "14px", fontSize: "7px", color: "#1a1a1a", textAlign: "center", fontFamily: "Press Start 2P, monospace" }}>(C) 2025 ONCHAIN ARCADE</div>
     </main>
   );
 }
