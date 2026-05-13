@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjMzMjIwOTMsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhCZWVhNTU5NmE5M2M1ZjVjODJDOEM0MDgxMzZCNTgyRmYyNURmMGEwIn0",
+    "payload": "eyJkb21haW4iOiJqYW5rZW4tbWluaWFwcC52ZXJjZWwuYXBwIn0",
+    "signature": "MDOZOaK8ErRLZ9HCl9g7RNkVZ9MyhAduCwElI2fabyAJYKrVzRzGAlIVJna5jfSpYutpIZ4nZdwcO6sUIMmxTxw="
+  },
+  "frame": {
+    "version": "1",
+    "name": "Rock Scissors Paper Onchain",
+    "iconUrl": "https://janken-miniapp.vercel.app/icon.png",
+    "homeUrl": "https://janken-miniapp.vercel.app",
+    "imageUrl": "https://janken-miniapp.vercel.app/og.png",
+    "buttonTitle": "Play Now",
+    "splashImageUrl": "https://janken-miniapp.vercel.app/og.png",
+    "splashBackgroundColor": "#0a0a0a",
+    "webhookUrl": "https://janken-miniapp.vercel.app/api/webhook"
+  }
+}
