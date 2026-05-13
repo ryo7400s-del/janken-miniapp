@@ -4,30 +4,28 @@ import { base } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { metaMask, injected } from "wagmi/connectors";
+import { useEffect, useState } from "react";
 
-const wagmiConfig = createConfig({
-  chains: [base],
-  connectors: [
-    injected(),
-    metaMask(),
-  ],
-  transports: {
-    [base.id]: http(),
-  },
-});
+function createWagmiConfig(ethProvider?: any) {
+  const connectors = [injected(), metaMask()];
+  return createConfig({
+    chains: [base],
+    connectors,
+    transports: { [base.id]: http() },
+  });
+}
 
 const queryClient = new QueryClient();
+const defaultConfig = createWagmiConfig();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={defaultConfig}>
       <QueryClientProvider client={queryClient}>
         <OnchainKitProvider
           apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
           chain={base}
-          config={{
-            appearance: { name: "Rock Scissors Paper" },
-          }}
+          config={{ appearance: { name: "Rock Scissors Paper" } }}
         >
           {children}
         </OnchainKitProvider>
