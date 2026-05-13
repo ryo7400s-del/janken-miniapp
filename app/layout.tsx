@@ -14,8 +14,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Rock Scissors Paper",
+  title: "Rock Scissors Paper - Onchain",
   description: "Onchain Rock Scissors Paper Game on Base",
+  openGraph: {
+    title: "Rock Scissors Paper - Onchain",
+    description: "Play Rock Scissors Paper onchain on Base!",
+    images: ["https://janken-miniapp.vercel.app/og.png"],
+  },
+  other: {
+    "fc:frame": "next",
+    "fc:frame:image": "https://janken-miniapp.vercel.app/og.png",
+    "fc:frame:button:1": "Play Now",
+    "fc:frame:button:1:action": "link",
+    "fc:frame:button:1:target": "https://janken-miniapp.vercel.app",
+  },
 };
 
 export default function RootLayout({
