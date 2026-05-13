@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAccount, useWalletClient } from "wagmi";
 import { parseEther, encodeFunctionData } from "viem";
+import { addERC8021Attribution } from "./lib/attribution";
 import { WalletConnect } from "./components/WalletConnect";
 import { useFarcaster } from "./hooks/useFarcaster";
 
@@ -9,7 +10,7 @@ const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${strin
 const CONTINUE_FEE = parseEther("0.000002");
 const BUILDER_CODE = "bc_upyavpsc";
 
-function getAttributionData(existingData?: `0x${string}`): `0x${string}` {
+function addERC8021Attribution(existingData?: `0x${string}`): `0x${string}` {
   const suffix = Array.from(new TextEncoder().encode(BUILDER_CODE))
     .map(b => b.toString(16).padStart(2, "0"))
     .join("");
@@ -147,7 +148,7 @@ export default function Home() {
     }
     setIsPending(true);
     try {
-      const data = getAttributionData();
+      const data = addERC8021Attribution();
       await walletClient.sendTransaction({
         to: FEE_RECIPIENT,
         value: CONTINUE_FEE,
@@ -183,7 +184,7 @@ export default function Home() {
         functionName: "recordHighScore",
         args: [BigInt(pendingHighScore)],
       });
-      const dataWithAttribution = getAttributionData(calldata);
+      const dataWithAttribution = addERC8021Attribution(calldata);
       await walletClient.sendTransaction({
         to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
         data: dataWithAttribution,
