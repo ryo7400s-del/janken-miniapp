@@ -138,7 +138,7 @@ export default function Home() {
     }
     setIsPending(true);
     try {
-      const data = addERC8021Attribution();
+      const data = addERC8021Attribution() as `0x${string}`;
       await walletClient.sendTransaction({
         to: FEE_RECIPIENT,
         value: CONTINUE_FEE,
