@@ -1,17 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import sdk from "@farcaster/frame-sdk";
 
 export function useFarcaster() {
   const [isReady, setIsReady] = useState(false);
   const [context, setContext] = useState<any>(null);
+  const [sdk, setSdk] = useState<any>(null);
 
   useEffect(() => {
     async function init() {
       try {
-        const ctx = await sdk.context;
+        const { sdk: miniSdk } = await import("@farcaster/miniapp-sdk");
+        setSdk(miniSdk);
+        const ctx = await miniSdk.context;
         setContext(ctx);
-        await sdk.actions.ready();
+        await miniSdk.actions.ready();
         setIsReady(true);
       } catch {
         setIsReady(true);
@@ -20,15 +22,5 @@ export function useFarcaster() {
     init();
   }, []);
 
-  async function connectWallet() {
-    try {
-      await sdk.wallet.ethProvider.request({
-        method: "eth_requestAccounts",
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  return { isReady, context, connectWallet };
+  return { isReady, context, sdk };
 }
