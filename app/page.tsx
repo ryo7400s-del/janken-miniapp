@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount, useWalletClient } from "wagmi";
-import { parseEther, encodeFunctionData, toHex } from "viem";
+import { parseEther, encodeFunctionData } from "viem";
 import { WalletConnect } from "./components/WalletConnect";
+import { useFarcaster } from "./hooks/useFarcaster";
 
 const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
 const BUILDER_CODE = "bc_upyavpsc";
 
-// ERC-8021 attribution suffix
 function getAttributionData(existingData?: `0x${string}`): `0x${string}` {
   const suffix = Array.from(new TextEncoder().encode(BUILDER_CODE))
     .map(b => b.toString(16).padStart(2, "0"))
@@ -19,7 +19,6 @@ function getAttributionData(existingData?: `0x${string}`): `0x${string}` {
   return `${existingData}${suffix}` as `0x${string}`;
 }
 
-// Rock=1, Paper=3, Scissors=2 (international order: Rock, Paper, Scissors)
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
   { id: 3, label: "PAPER", emoji: "🖐️" },
@@ -41,6 +40,8 @@ type LeaderboardEntry = { address: string; score: number };
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { isReady, context } = useFarcaster();
+
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [playerMove, setPlayerMove] = useState<number | null>(null);
@@ -56,6 +57,8 @@ export default function Home() {
   const [flash, setFlash] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
+
+  const isFarcaster = !!context?.user;
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -144,7 +147,6 @@ export default function Home() {
     }
     setIsPending(true);
     try {
-      // ERC-8021 attribution付きで直接送金
       const data = getAttributionData();
       await walletClient.sendTransaction({
         to: FEE_RECIPIENT,
@@ -176,7 +178,6 @@ export default function Home() {
     }
     setIsPending(true);
     try {
-      // コントラクトcalldataにERC-8021 attributionを追加
       const calldata = encodeFunctionData({
         abi: [{ name: "recordHighScore", type: "function", stateMutability: "nonpayable", inputs: [{ name: "score", type: "uint256" }], outputs: [] }],
         functionName: "recordHighScore",
@@ -199,6 +200,14 @@ export default function Home() {
 
   const moveObj = (id: number) => MOVES.find((m) => m.id === id);
   const resultColor = result === "win" ? "#00ff41" : result === "draw" ? "#ffe600" : result === "lose" ? "#ff003c" : "#00eaff";
+
+  if (!isReady) {
+    return (
+      <main style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#00ff41", fontFamily: "Press Start 2P, monospace", fontSize: "12px" }}>LOADING...</div>
+      </main>
+    );
+  }
 
   return (
     <main style={{
@@ -259,9 +268,16 @@ export default function Home() {
           <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>* INSERT COIN *</div>
           <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>ROCK PAPER SCIS</div>
           <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>ONCHAIN EDITION</div>
+          {isFarcaster && context?.user && (
+            <div style={{ fontSize: "7px", color: "#ffe600", marginTop: "4px" }}>
+              Welcome {context.user.displayName || context.user.username}!
+            </div>
+          )}
         </div>
 
-        <div style={{ marginBottom: "12px" }}><WalletConnect /></div>
+        {!isFarcaster && (
+          <div style={{ marginBottom: "12px" }}><WalletConnect /></div>
+        )}
 
         {isPending && <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>TX PENDING...</div>}
 
