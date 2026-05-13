@@ -174,7 +174,7 @@ export default function Home() {
         functionName: "recordHighScore",
         args: [BigInt(pendingHighScore)],
       });
-      const dataWithAttribution = addERC8021Attribution(calldata);
+      const dataWithAttribution = addERC8021Attribution(calldata) as `0x${string}`;
       await walletClient.sendTransaction({
         to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
         data: dataWithAttribution,
