@@ -8,17 +8,7 @@ import { useFarcaster } from "./hooks/useFarcaster";
 
 const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
-const BUILDER_CODE = "bc_upyavpsc";
 
-function addERC8021Attribution(existingData?: `0x${string}`): `0x${string}` {
-  const suffix = Array.from(new TextEncoder().encode(BUILDER_CODE))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-  if (!existingData || existingData === "0x") {
-    return `0x${suffix}` as `0x${string}`;
-  }
-  return `${existingData}${suffix}` as `0x${string}`;
-}
 
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
