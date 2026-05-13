@@ -1,21 +1,29 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount, useWalletClient } from "wagmi";
-import { parseEther, encodeFunctionData } from "viem";
+import { parseEther, encodeFunctionData, toHex } from "viem";
 import { WalletConnect } from "./components/WalletConnect";
 
 const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
 const BUILDER_CODE = "bc_upyavpsc";
 
-function encodeBuilderSuffix(): string {
-  return Buffer.from(BUILDER_CODE, "utf8").toString("hex");
+// ERC-8021 attribution suffix
+function getAttributionData(existingData?: `0x${string}`): `0x${string}` {
+  const suffix = Array.from(new TextEncoder().encode(BUILDER_CODE))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+  if (!existingData || existingData === "0x") {
+    return `0x${suffix}` as `0x${string}`;
+  }
+  return `${existingData}${suffix}` as `0x${string}`;
 }
 
+// Rock=1, Paper=3, Scissors=2 (international order: Rock, Paper, Scissors)
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
-  { id: 2, label: "SCIS", emoji: "✌️" },
   { id: 3, label: "PAPER", emoji: "🖐️" },
+  { id: 2, label: "SCIS", emoji: "✌️" },
 ];
 
 function judge(p: number, h: number): "win" | "draw" | "lose" {
@@ -136,11 +144,12 @@ export default function Home() {
     }
     setIsPending(true);
     try {
-      const suffix = encodeBuilderSuffix();
+      // ERC-8021 attribution付きで直接送金
+      const data = getAttributionData();
       await walletClient.sendTransaction({
         to: FEE_RECIPIENT,
         value: CONTINUE_FEE,
-        data: `0x${suffix}` as `0x${string}`,
+        data,
       });
       setHasContinued(true);
       setPhase("idle");
@@ -167,16 +176,16 @@ export default function Home() {
     }
     setIsPending(true);
     try {
-      const suffix = encodeBuilderSuffix();
-      const data = encodeFunctionData({
+      // コントラクトcalldataにERC-8021 attributionを追加
+      const calldata = encodeFunctionData({
         abi: [{ name: "recordHighScore", type: "function", stateMutability: "nonpayable", inputs: [{ name: "score", type: "uint256" }], outputs: [] }],
         functionName: "recordHighScore",
         args: [BigInt(pendingHighScore)],
       });
-      const dataWithSuffix = `${data}${suffix}` as `0x${string}`;
+      const dataWithAttribution = getAttributionData(calldata);
       await walletClient.sendTransaction({
         to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
-        data: dataWithSuffix,
+        data: dataWithAttribution,
       });
       setPendingHighScore(null);
       setPhase("gameover");
@@ -248,7 +257,7 @@ export default function Home() {
 
         <div style={{ textAlign: "center", marginBottom: "12px" }}>
           <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>* INSERT COIN *</div>
-          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>ROCK SCIS PAPER</div>
+          <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>ROCK PAPER SCIS</div>
           <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>ONCHAIN EDITION</div>
         </div>
 
