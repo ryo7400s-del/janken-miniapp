@@ -20,5 +20,15 @@ export function useFarcaster() {
     init();
   }, []);
 
-  return { isReady, context };
+  async function connectWallet() {
+    try {
+      await sdk.wallet.ethProvider.request({
+        method: "eth_requestAccounts",
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  return { isReady, context, connectWallet };
 }
