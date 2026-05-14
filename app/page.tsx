@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useWalletClient, useReadContract } from "wagmi";
 import { parseEther, encodeFunctionData } from "viem";
 import { addERC8021Attribution } from "./lib/attribution";
 import { WalletConnect } from "./components/WalletConnect";
@@ -31,6 +31,13 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { data: walletClient, refetch: refetchWallet } = useWalletClient();
   const { isReady, context, ethProvider } = useFarcaster();
+  const { data: onchainBest } = useReadContract({
+    address: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
+    abi: [{ name: "getHighScore", type: "function", stateMutability: "view", inputs: [{ name: "player", type: "address" }], outputs: [{ name: "", type: "uint256" }] }],
+    functionName: "getHighScore",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
 
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
@@ -49,6 +56,12 @@ export default function Home() {
   const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
 
   const isFarcaster = !!context?.user;
+
+  useEffect(() => {
+    if (onchainBest !== undefined) {
+      setBest(Number(onchainBest));
+    }
+  }, [onchainBest]);
 
   async function getWallet() {
     if (walletClient) return walletClient;
