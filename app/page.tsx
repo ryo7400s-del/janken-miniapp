@@ -9,7 +9,6 @@ import { useFarcaster } from "./hooks/useFarcaster";
 const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
 
-
 const MOVES = [
   { id: 1, label: "ROCK", emoji: "✊" },
   { id: 3, label: "PAPER", emoji: "🖐️" },
@@ -31,7 +30,7 @@ type LeaderboardEntry = { address: string; score: number };
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { data: walletClient, refetch: refetchWallet } = useWalletClient();
-  const { isReady, context } = useFarcaster();
+  const { isReady, context, ethProvider } = useFarcaster();
 
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
@@ -50,6 +49,12 @@ export default function Home() {
   const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
 
   const isFarcaster = !!context?.user;
+
+  async function getWallet() {
+    if (walletClient) return walletClient;
+    const { data } = await refetchWallet();
+    return data || null;
+  }
 
   useEffect(() => {
     const t = setInterval(() => setBlink((b) => !b), 500);
@@ -88,12 +93,11 @@ export default function Home() {
     setLoadingBoard(false);
   }
 
-  async function submitScore(newBest: number) {
-    if (!address) return;
+  async function submitScore(newBest: number, addr: string) {
     await fetch("/api/leaderboard", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address, score: newBest }),
+      body: JSON.stringify({ address: addr, score: newBest }),
     });
   }
 
@@ -111,7 +115,6 @@ export default function Home() {
       if (ns > best) {
         setBest(ns);
         setPendingHighScore(ns);
-        // submitScore is called only after onchain record
       }
       setTimeout(() => setPhase("idle"), 1500);
     } else if (res === "draw") {
@@ -132,17 +135,17 @@ export default function Home() {
   }
 
   async function handleContinue() {
-    const { data: freshWallet } = await refetchWallet();
-    const wc = freshWallet || walletClient;
-    if (!wc) {
-      alert("Please connect your wallet to continue!");
-      return;
-    }
     setIsPending(true);
     try {
+      const wc = await getWallet();
+      if (!wc) {
+        alert("Please connect your wallet to continue!");
+        setIsPending(false);
+        return;
+      }
       const data = addERC8021Attribution() as `0x${string}`;
       await wc.sendTransaction({
-        to: FEE_RECIPIENT, chain: { id: 8453 } as any,
+        to: FEE_RECIPIENT,
         value: CONTINUE_FEE,
         data,
       });
@@ -164,26 +167,29 @@ export default function Home() {
   }
 
   async function handleRecordScore() {
-    const { data: freshWallet2 } = await refetchWallet();
-    const wc2 = freshWallet2 || walletClient;
-    if (!walletClient && !wc2 || pendingHighScore === null) {
-      setPendingHighScore(null);
+    if (pendingHighScore === null) {
       setPhase("gameover");
       return;
     }
     setIsPending(true);
     try {
+      const wc = await getWallet();
+      if (!wc) {
+        setPendingHighScore(null);
+        setPhase("gameover");
+        return;
+      }
       const calldata = encodeFunctionData({
         abi: [{ name: "recordHighScore", type: "function", stateMutability: "nonpayable", inputs: [{ name: "score", type: "uint256" }], outputs: [] }],
         functionName: "recordHighScore",
         args: [BigInt(pendingHighScore)],
       });
       const dataWithAttribution = addERC8021Attribution(calldata) as `0x${string}`;
-      await walletClient!.sendTransaction({
+      await wc.sendTransaction({
         to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
         data: dataWithAttribution,
       });
-      submitScore(pendingHighScore as number);
+      if (address) await submitScore(pendingHighScore, address);
       setPendingHighScore(null);
       setPhase("gameover");
     } catch {
@@ -271,9 +277,7 @@ export default function Home() {
           )}
         </div>
 
-        {!isFarcaster && (
-          <div style={{ marginBottom: "12px" }}><WalletConnect /></div>
-        )}
+        <div style={{ marginBottom: "12px" }}><WalletConnect /></div>
 
         {isPending && <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>TX PENDING...</div>}
 
