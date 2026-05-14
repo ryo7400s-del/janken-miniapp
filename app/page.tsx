@@ -166,7 +166,7 @@ export default function Home() {
   async function handleRecordScore() {
     const { data: freshWallet2 } = await refetchWallet();
     const wc2 = freshWallet2 || walletClient;
-    if (!walletClient && !wc || pendingHighScore === null) {
+    if (!walletClient && !wc2 || pendingHighScore === null) {
       setPendingHighScore(null);
       setPhase("gameover");
       return;
