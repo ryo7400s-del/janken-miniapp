@@ -140,7 +140,7 @@ export default function Home() {
     try {
       const data = addERC8021Attribution() as `0x${string}`;
       await walletClient.sendTransaction({
-        to: FEE_RECIPIENT,
+        to: FEE_RECIPIENT, chain: { id: 8453 } as any,
         value: CONTINUE_FEE,
         data,
       });
