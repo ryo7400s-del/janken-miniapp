@@ -6,7 +6,7 @@ import { addERC8021Attribution } from "./lib/attribution";
 import { WalletConnect } from "./components/WalletConnect";
 import { useFarcaster } from "./hooks/useFarcaster";
 
-const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
+const FEE_RECIPIENT = "0x2c730099cf2f82A36d3AbC4Eb7F0786037e506e9" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
 
 const MOVES = [
