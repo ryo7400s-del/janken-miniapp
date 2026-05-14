@@ -2,10 +2,10 @@ import { Attribution } from "ox/erc8021";
 
 const BUILDER_CODE = "bc_upyavpsc";
 
-export function getDataSuffix():  {
+export function getDataSuffix(): string {
   return Attribution.toDataSuffix({
     codes: [BUILDER_CODE],
-  }) as ;
+  }) as string;
 }
 
 export function addERC8021Attribution(existingData?: string): string {
