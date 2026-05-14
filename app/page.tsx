@@ -30,7 +30,7 @@ type LeaderboardEntry = { address: string; score: number };
 
 export default function Home() {
   const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient, refetch: refetchWallet } = useWalletClient();
   const { isReady, context } = useFarcaster();
 
   const [score, setScore] = useState(0);
@@ -132,14 +132,16 @@ export default function Home() {
   }
 
   async function handleContinue() {
-    if (!walletClient) {
+    const { data: freshWallet } = await refetchWallet();
+    const wc = freshWallet || walletClient;
+    if (!wc) {
       alert("Please connect your wallet to continue!");
       return;
     }
     setIsPending(true);
     try {
       const data = addERC8021Attribution() as `0x${string}`;
-      await walletClient.sendTransaction({
+      await wc.sendTransaction({
         to: FEE_RECIPIENT, chain: { id: 8453 } as any,
         value: CONTINUE_FEE,
         data,
@@ -162,7 +164,9 @@ export default function Home() {
   }
 
   async function handleRecordScore() {
-    if (!isConnected || !walletClient || pendingHighScore === null) {
+    const { data: freshWallet2 } = await refetchWallet();
+    const wc2 = freshWallet2 || walletClient;
+    if (!walletClient && !wc || pendingHighScore === null) {
       setPendingHighScore(null);
       setPhase("gameover");
       return;
@@ -175,7 +179,7 @@ export default function Home() {
         args: [BigInt(pendingHighScore)],
       });
       const dataWithAttribution = addERC8021Attribution(calldata) as `0x${string}`;
-      await walletClient.sendTransaction({
+      await walletClient!.sendTransaction({
         to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
         data: dataWithAttribution,
       });
