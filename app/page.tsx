@@ -111,7 +111,7 @@ export default function Home() {
       if (ns > best) {
         setBest(ns);
         setPendingHighScore(ns);
-        if (isConnected) submitScore(ns);
+        // submitScore is called only after onchain record
       }
       setTimeout(() => setPhase("idle"), 1500);
     } else if (res === "draw") {
@@ -132,7 +132,7 @@ export default function Home() {
   }
 
   async function handleContinue() {
-    if (!isConnected || !walletClient) {
+    if (!walletClient) {
       alert("Please connect your wallet to continue!");
       return;
     }
@@ -179,6 +179,7 @@ export default function Home() {
         to: process.env.NEXT_PUBLIC_LEADERBOARD_ADDRESS as `0x${string}`,
         data: dataWithAttribution,
       });
+      submitScore(pendingHighScore as number);
       setPendingHighScore(null);
       setPhase("gameover");
     } catch {
