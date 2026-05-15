@@ -89,6 +89,7 @@ export default function Home() {
             setHouseMove(null);
             setResult(null);
             setPhase("idle");
+            setHasContinued(false);
           }, 600);
           return 0;
         }
