@@ -52,6 +52,7 @@ export default function Home() {
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [flash, setFlash] = useState(false);
+  const [continueAnim, setContinueAnim] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
 
@@ -149,6 +150,11 @@ export default function Home() {
   }
 
   async function handleContinue() {
+    // 即座にゲーム再開（TX完了を待たない）
+    setHasContinued(true);
+    setPhase("idle");
+    setContinueAnim(true);
+    setTimeout(() => setContinueAnim(false), 2000);
     setIsPending(true);
     try {
       const wc = await getWallet();
@@ -163,7 +169,6 @@ export default function Home() {
         value: CONTINUE_FEE,
         data,
       });
-      setHasContinued(true);
       setPhase("idle");
     } catch {
       alert("Transaction failed. Please try again.");
@@ -294,6 +299,7 @@ export default function Home() {
         <div style={{ marginBottom: "12px" }}><WalletConnect /></div>
 
         {isPending && <div style={{ textAlign: "center", fontSize: "8px", color: "#ffe600", textShadow: "0 0 8px #ffe600", marginBottom: "8px" }}>TX PENDING...</div>}
+        {continueAnim && <div style={{ textAlign: "center", fontSize: "10px", color: "#00ff41", textShadow: "0 0 16px #00ff41", marginBottom: "8px", animation: "glow-green 0.5s ease-in-out infinite" }}>CONTINUE! +1 CREDIT</div>}
 
         <div style={{ display: "flex", marginBottom: "12px", border: "2px solid #333" }}>
           {(["game", "board"] as const).map((t) => (
