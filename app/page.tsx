@@ -5,6 +5,8 @@ import { parseEther, encodeFunctionData } from "viem";
 import { addERC8021Attribution } from "./lib/attribution";
 import { WalletConnect } from "./components/WalletConnect";
 import { useFarcaster } from "./hooks/useFarcaster";
+import { useBGM } from "./hooks/useBGM";
+import { useBGM } from "./hooks/useBGM";
 
 const FEE_RECIPIENT = "0x83c4586C744832e4C66F3B58E773687fA8E64a09" as `0x${string}`;
 const CONTINUE_FEE = parseEther("0.000002");
@@ -57,6 +59,8 @@ export default function Home() {
   const [pendingHighScore, setPendingHighScore] = useState<number | null>(null);
 
   const isFarcaster = !!context?.user;
+  const { play, stop, playing } = useBGM();
+  const { play, stop, playing } = useBGM();
 
   useEffect(() => {
     if (onchainBest !== undefined) {
@@ -289,6 +293,7 @@ export default function Home() {
           <div style={{ fontSize: "11px", color: "#ff00ff", textShadow: "0 0 10px #ff00ff", letterSpacing: "3px", marginBottom: "6px" }}>* INSERT COIN *</div>
           <div style={{ fontSize: "18px", color: "#00ff41", animation: "glow-green 2s ease-in-out infinite", letterSpacing: "2px" }}>ROCK PAPER SCIS</div>
           <div style={{ fontSize: "9px", color: "#00eaff", marginTop: "6px", textShadow: "0 0 8px #00eaff" }}>ONCHAIN EDITION</div>
+          <button onClick={() => playing ? stop() : play()} style={{ marginTop: "8px", background: "transparent", border: "1px solid #333", color: playing ? "#00ff41" : "#444", fontFamily: "Press Start 2P, monospace", fontSize: "7px", padding: "4px 10px", cursor: "pointer", borderColor: playing ? "#00ff41" : "#333" }}>{playing ? "♪ BGM ON" : "♪ BGM OFF"}</button>
           {isFarcaster && context?.user && (
             <div style={{ fontSize: "7px", color: "#ffe600", marginTop: "4px" }}>
               Welcome {context.user.displayName || context.user.username}!
